@@ -27,3 +27,6 @@ clean:
 	rm -rf ./bin/os.bin
 	rm -rf ${FILES}
 	rm -rf ./build/kernelfull.o
+.PHONY: run
+run:
+	qemu-system-i386 -drive format=raw,file=./bin/os.bin
