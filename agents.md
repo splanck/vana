@@ -5,6 +5,7 @@
   ```
   ./build-toolchain.sh
   ```
+- The tools will be installed in $HOME/opt/cross when the build-toolchain.sh script completes. Be sure to give it several minutes since its building gcc and binutils.
 
 ## Reference Kernel Examples
 
