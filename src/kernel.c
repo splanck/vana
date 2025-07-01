@@ -4,6 +4,7 @@
 #include "gdt/gdt.h"
 #include "task/tss.h"
 #include "idt/idt.h"
+#include "memory/heap/kheap.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -92,6 +93,9 @@ void kernel_main()
     desc.size = sizeof(gdt_real) - 1;
     desc.address = (uint32_t)gdt_real;
     gdt_load(&desc);
+
+    // Initialize the kernel heap before paging
+    kheap_init();
 
     memset(&tss, 0x00, sizeof(tss));
     tss.esp0 = 0x600000;

@@ -24,6 +24,12 @@ SECTIONS
         *(.bss)
     }
 
+    /* Reserve space for the kernel heap */
+    .heap : ALIGN(4096)
+    {
+        . = . + 104857600; /* 100MB */
+    }
+
     .asm : ALIGN(4096)
     {
         *(.asm)
