@@ -59,7 +59,6 @@ static void keyboard_irq_handler(struct interrupt_frame* frame)
     uint8_t scancode = insb(KEYBOARD_INPUT_PORT);
     insb(KEYBOARD_INPUT_PORT);
     keyboard_push((char)scancode);
-    outb(0x20, 0x20);
 }
 
 void keyboard_backspace()
