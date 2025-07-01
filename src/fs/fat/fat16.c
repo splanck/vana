@@ -1,4 +1,5 @@
 #include "fat16.h"
+#include "config.h"
 #include "string/string.h"
 #include "disk/disk.h"
 #include "disk/streamer.h"
