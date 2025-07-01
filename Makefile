@@ -3,10 +3,12 @@ FILES = ./build/kernel.asm.o \
         ./build/gdt.o \
         ./build/gdt.asm.o \
         ./build/tss.asm.o \
+        ./build/idt.o \
+        ./build/idt.asm.o \
         ./build/memory.o \
         ./build/string.o \
         ./build/io.o
-INCLUDES = -I./src -I./src/gdt -I./src/task
+INCLUDES = -I./src -I./src/gdt -I./src/task -I./src/idt
 FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign-loops -fstrength-reduce -fomit-frame-pointer -finline-functions -Wno-unused-function -fno-builtin -Werror -Wno-unused-label -Wno-cpp -Wno-unused-parameter -nostdlib -nostartfiles -nodefaultlibs -Wall -O0 -Iinc
 
 all: ./bin/boot.bin ./bin/kernel.bin
@@ -36,6 +38,12 @@ all: ./bin/boot.bin ./bin/kernel.bin
 
 ./build/tss.asm.o: ./src/task/tss.asm
 	nasm -f elf -g ./src/task/tss.asm -o ./build/tss.asm.o
+
+./build/idt.o: ./src/idt/idt.c
+	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/idt/idt.c -o ./build/idt.o
+
+./build/idt.asm.o: ./src/idt/idt.asm
+	nasm -f elf -g ./src/idt/idt.asm -o ./build/idt.asm.o
 
 ./build/memory.o: ./src/memory/memory.c
 	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/memory/memory.c -o ./build/memory.o
