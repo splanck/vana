@@ -138,4 +138,9 @@ void kernel_main()
     print("Interrupts on.\n");
 
     print("Hello world!\n");
+
+    disable_interrupts();
+    for (;;) {
+        asm volatile("hlt");
+    }
 }
