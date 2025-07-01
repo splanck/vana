@@ -3,6 +3,7 @@
 #include "io/io.h"
 #include "memory/memory.h"
 #include "kernel.h"
+#include "string/string.h"
 
 #define IDT_TOTAL_DESCRIPTORS 256
 
@@ -52,7 +53,12 @@ void interrupt_handler(int interrupt, struct interrupt_frame* frame)
         }
         else
         {
-            panic("Unhandled interrupt\n");
+            char buf[32];
+            int_to_string(interrupt, buf);
+            print("Unhandled interrupt ");
+            print(buf);
+            print("\n");
+            panic("");
         }
     }
     outb(0x20, 0x20);
