@@ -9,12 +9,12 @@ struct heap_table kernel_heap_table;
 
 void kheap_init()
 {
-    int total_table_entries = PEACHOS_HEAP_SIZE_BYTES / PEACHOS_HEAP_BLOCK_SIZE;
-    kernel_heap_table.entries = (HEAP_BLOCK_TABLE_ENTRY*)(PEACHOS_HEAP_TABLE_ADDRESS);
+    int total_table_entries = VANA_HEAP_SIZE_BYTES / VANA_HEAP_BLOCK_SIZE;
+    kernel_heap_table.entries = (HEAP_BLOCK_TABLE_ENTRY*)(VANA_HEAP_TABLE_ADDRESS);
     kernel_heap_table.total = total_table_entries;
 
-    void* end = (void*)(PEACHOS_HEAP_ADDRESS + PEACHOS_HEAP_SIZE_BYTES);
-    int res = heap_create(&kernel_heap, (void*)(PEACHOS_HEAP_ADDRESS), end, &kernel_heap_table);
+    void* end = (void*)(VANA_HEAP_ADDRESS + VANA_HEAP_SIZE_BYTES);
+    int res = heap_create(&kernel_heap, (void*)(VANA_HEAP_ADDRESS), end, &kernel_heap_table);
     if (res < 0)
     {
         print("Failed to create heap\n");
