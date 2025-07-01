@@ -18,6 +18,15 @@ uint16_t* video_mem = 0;
 uint16_t terminal_row = 0;
 uint16_t terminal_col = 0;
 
+struct tss tss;
+struct gdt gdt_real[4];
+struct gdt_structured gdt_structured[4] = {
+    {.base = 0x00, .limit = 0x00, .type = 0x00},                // Null segment
+    {.base = 0x00, .limit = 0xffffffff, .type = 0x9a},         // Kernel code
+    {.base = 0x00, .limit = 0xffffffff, .type = 0x92},         // Kernel data
+    {.base = (uint32_t)&tss, .limit = sizeof(tss), .type = 0xE9} // TSS
+};
+
 uint16_t terminal_make_char(char c, char colour)
 {
     return (colour << 8) | c;
@@ -83,15 +92,6 @@ void kernel_main()
 
     // Ensure no interrupts fire during early setup
     disable_interrupts();
-
-    struct tss tss;
-    struct gdt gdt_real[4];
-    struct gdt_structured gdt_structured[4] = {
-        {.base = 0x00, .limit = 0x00, .type = 0x00},                // Null segment
-        {.base = 0x00, .limit = 0xffffffff, .type = 0x9a},         // Kernel code
-        {.base = 0x00, .limit = 0xffffffff, .type = 0x92},         // Kernel data
-        {.base = (uint32_t)&tss, .limit = sizeof(tss), .type = 0xE9} // TSS
-    };
 
     memset(gdt_real, 0x00, sizeof(gdt_real));
     gdt_structured_to_gdt(gdt_real, gdt_structured, 4);
