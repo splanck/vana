@@ -9,6 +9,7 @@
 #include "memory/paging/paging.h"
 #include "disk/disk.h"
 #include "disk/streamer.h"
+#include "fs/file.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -117,6 +118,7 @@ void kernel_main()
     // Ignore spurious timer interrupts until proper handlers exist
     idt_register_interrupt_callback(0x20, interrupt_ignore);
 
+    fs_init();
     disk_search_and_init();
     struct disk_stream* default_stream = diskstreamer_new(0);
     if (default_stream)
