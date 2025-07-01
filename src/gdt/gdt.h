@@ -23,7 +23,13 @@ struct gdt_structured
     uint8_t type;
 };
 
-void gdt_load(struct gdt* gdt, int size);
+struct gdt_descriptor
+{
+    uint16_t size;
+    uint32_t address;
+} __attribute__((packed));
+
+void gdt_load(struct gdt_descriptor* descriptor);
 void gdt_structured_to_gdt(struct gdt* gdt, struct gdt_structured* structured_gdt, int total_entries);
 
 #endif
