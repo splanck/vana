@@ -36,9 +36,9 @@ _start:
     mov al, 0x01
     out 0x21, al
     out 0xA1, al
-    mov al, 0x0
-    out 0x21, al
-    out 0xA1, al
+    mov al, 0xFF
+    out 0x21, al        ; mask all master IRQs
+    out 0xA1, al        ; mask all slave IRQs
 
     call kernel_main
 
