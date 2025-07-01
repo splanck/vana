@@ -1,6 +1,7 @@
 #include "idt.h"
 #include "gdt/gdt.h"
 #include "io/io.h"
+#include "pic/pic.h"
 #include "memory/memory.h"
 #include "kernel.h"
 #include "string/string.h"
@@ -18,14 +19,12 @@ static INTERRUPT_CALLBACK_FUNCTION interrupt_callbacks[IDT_TOTAL_DESCRIPTORS];
 void interrupt_ignore(struct interrupt_frame* frame)
 {
     (void)frame;
-    outb(0x20, 0x20);
 }
 
 static void idt_handle_exception(struct interrupt_frame* frame)
 {
     (void)frame;
     print("CPU exception\n");
-    outb(0x20, 0x20);
 }
 
 static void idt_set(int interrupt_no, void* address)
@@ -40,7 +39,6 @@ static void idt_set(int interrupt_no, void* address)
 
 void no_interrupt_handler()
 {
-    outb(0x20, 0x20);
 }
 
 void interrupt_handler(int interrupt, struct interrupt_frame* frame)
@@ -61,7 +59,11 @@ void interrupt_handler(int interrupt, struct interrupt_frame* frame)
             panic("");
         }
     }
-    outb(0x20, 0x20);
+
+    if (interrupt >= 0x20 && interrupt <= 0x2F)
+    {
+        pic_send_eoi(interrupt - 0x20);
+    }
 }
 
 void idt_init()

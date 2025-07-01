@@ -13,6 +13,7 @@ FILES = ./build/kernel.asm.o \
         ./build/idt.asm.o \
         ./build/memory.o \
         ./build/string.o \
+        ./build/pic.o \
         ./build/io.o \
         $(DISK_OBJS) \
         $(KEYBOARD_OBJS) \
@@ -69,6 +70,9 @@ all: dirs ./bin/boot.bin ./bin/kernel.bin
 
 ./build/string.o: ./src/string/string.c
 	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/string/string.c -o ./build/string.o
+
+./build/pic.o: ./src/pic/pic.c
+	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/pic/pic.c -o ./build/pic.o
 
 ./build/io.o: ./src/io/io.asm
 	nasm -f elf -g ./src/io/io.asm -o ./build/io.o
