@@ -60,8 +60,14 @@ gdt_descriptor:
     dw gdt_end - gdt_start-1
     dd gdt_start
  
- [BITS 32]
- load32:
+[BITS 32]
+load32:
+    mov ax, DATA_SEG
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
     mov eax, 1
     mov ecx, 100
     mov edi, 0x0100000
