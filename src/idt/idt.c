@@ -31,9 +31,16 @@ void no_interrupt_handler()
 
 void interrupt_handler(int interrupt, struct interrupt_frame* frame)
 {
-    if (interrupt < IDT_TOTAL_DESCRIPTORS && interrupt_callbacks[interrupt])
+    if (interrupt < IDT_TOTAL_DESCRIPTORS)
     {
-        interrupt_callbacks[interrupt](frame);
+        if (interrupt_callbacks[interrupt])
+        {
+            interrupt_callbacks[interrupt](frame);
+        }
+        else
+        {
+            panic("Unhandled interrupt\n");
+        }
     }
     outb(0x20, 0x20);
 }
