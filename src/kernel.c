@@ -75,6 +75,7 @@ void panic(const char* msg)
 void kernel_main()
 {
     terminal_initialize();
+    print("Terminal ready.\n");
 
     // Ensure no interrupts fire during early setup
     disable_interrupts();
@@ -94,17 +95,21 @@ void kernel_main()
     desc.size = sizeof(gdt_real) - 1;
     desc.address = (uint32_t)gdt_real;
     gdt_load(&desc);
+    print("GDT loaded.\n");
 
     // Initialize the kernel heap before paging
     kheap_init();
+    print("Heap initialized.\n");
 
     memset(&tss, 0x00, sizeof(tss));
     tss.esp0 = 0x600000;
     tss.ss0 = GDT_KERNEL_DATA_SELECTOR;
     tss_load(GDT_TSS_SELECTOR);
+    print("TSS loaded.\n");
 
     // With the GDT and TSS active we can setup the IDT
     idt_init();
+    print("IDT initialized.\n");
 
     // Ignore spurious timer interrupts until proper handlers exist
     idt_register_interrupt_callback(0x20, interrupt_ignore);
@@ -114,8 +119,10 @@ void kernel_main()
                        PAGING_ACCESS_FROM_ALL);
     paging_switch(kernel_chunk);
     enable_paging();
+    print("Paging enabled.\n");
 
     enable_interrupts();
+    print("Interrupts on.\n");
 
     print("Hello world!\n");
 }
