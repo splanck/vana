@@ -1,26 +1,8 @@
 #include "paging.h"
 #include "memory/memory.h"
+#include "memory/heap/kheap.h"
 #include <stdbool.h>
 #include <stdint.h>
-
-/* Simple internal allocator for paging structures */
-#define PAGING_HEAP_SIZE (PAGING_TOTAL_ENTRIES_PER_TABLE * \
-                          PAGING_TOTAL_ENTRIES_PER_TABLE * sizeof(uint32_t))
-static unsigned char paging_heap[PAGING_HEAP_SIZE];
-static size_t paging_heap_offset = 0;
-
-static void* paging_kzalloc(size_t size)
-{
-    void* mem = &paging_heap[paging_heap_offset];
-    paging_heap_offset += size;
-    memset(mem, 0x00, size);
-    return mem;
-}
-
-static void paging_kfree(void* ptr)
-{
-    (void)ptr; /* no-op allocator */
-}
 
 void paging_load_directory(uint32_t* directory);
 
@@ -28,11 +10,11 @@ static uint32_t* current_directory = 0;
 
 struct paging_4gb_chunk* paging_new_4gb(uint8_t flags)
 {
-    uint32_t* directory = paging_kzalloc(sizeof(uint32_t) * PAGING_TOTAL_ENTRIES_PER_TABLE);
+    uint32_t* directory = kzalloc(sizeof(uint32_t) * PAGING_TOTAL_ENTRIES_PER_TABLE);
     int offset = 0;
     for (int i = 0; i < PAGING_TOTAL_ENTRIES_PER_TABLE; i++)
     {
-        uint32_t* entry = paging_kzalloc(sizeof(uint32_t) * PAGING_TOTAL_ENTRIES_PER_TABLE);
+        uint32_t* entry = kzalloc(sizeof(uint32_t) * PAGING_TOTAL_ENTRIES_PER_TABLE);
         for (int b = 0; b < PAGING_TOTAL_ENTRIES_PER_TABLE; b++)
         {
             entry[b] = (offset + (b * PAGING_PAGE_SIZE)) | flags;
@@ -41,7 +23,7 @@ struct paging_4gb_chunk* paging_new_4gb(uint8_t flags)
         directory[i] = (uint32_t)entry | flags | PAGING_IS_WRITEABLE;
     }
 
-    struct paging_4gb_chunk* chunk_4gb = paging_kzalloc(sizeof(struct paging_4gb_chunk));
+    struct paging_4gb_chunk* chunk_4gb = kzalloc(sizeof(struct paging_4gb_chunk));
     chunk_4gb->directory_entry = directory;
     return chunk_4gb;
 }
@@ -58,11 +40,11 @@ void paging_free_4gb(struct paging_4gb_chunk* chunk)
     {
         uint32_t entry = chunk->directory_entry[i];
         uint32_t* table = (uint32_t*)(entry & 0xfffff000);
-        paging_kfree(table);
+        kfree(table);
     }
 
-    paging_kfree(chunk->directory_entry);
-    paging_kfree(chunk);
+    kfree(chunk->directory_entry);
+    kfree(chunk);
 }
 
 uint32_t* paging_4gb_chunk_get_directory(struct paging_4gb_chunk* chunk)
