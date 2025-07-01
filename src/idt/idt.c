@@ -14,6 +14,12 @@ extern void idt_load(struct idtr_desc* ptr);
 
 static INTERRUPT_CALLBACK_FUNCTION interrupt_callbacks[IDT_TOTAL_DESCRIPTORS];
 
+void interrupt_ignore(struct interrupt_frame* frame)
+{
+    (void)frame;
+    outb(0x20, 0x20);
+}
+
 static void idt_set(int interrupt_no, void* address)
 {
     struct idt_desc* desc = &idt_descriptors[interrupt_no];
