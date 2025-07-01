@@ -7,6 +7,8 @@
 #include "memory/heap/kheap.h"
 #include "keyboard/keyboard.h"
 #include "memory/paging/paging.h"
+#include "disk/disk.h"
+#include "disk/streamer.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -114,6 +116,12 @@ void kernel_main()
 
     // Ignore spurious timer interrupts until proper handlers exist
     idt_register_interrupt_callback(0x20, interrupt_ignore);
+
+    disk_search_and_init();
+    struct disk_stream* default_stream = diskstreamer_new(0);
+    if (default_stream)
+        diskstreamer_close(default_stream);
+    print("Disk initialized.\n");
 
     keyboard_init();
     print("Keyboard initialized.\n");
