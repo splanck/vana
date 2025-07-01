@@ -79,6 +79,7 @@ void idt_init()
         idt_register_interrupt_callback(i, idt_handle_exception);
     }
     idt_register_interrupt_callback(0x27, interrupt_ignore);
+    idt_register_interrupt_callback(0x2F, interrupt_ignore);
 }
 
 int idt_register_interrupt_callback(int interrupt, INTERRUPT_CALLBACK_FUNCTION callback)
