@@ -1,6 +1,8 @@
 #include "kernel.h"
 #include "string/string.h"
 #include "memory/memory.h"
+#include "gdt/gdt.h"
+#include "task/tss.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -61,8 +63,36 @@ void print(const char* str)
     }
 }
 
+void panic(const char* msg)
+{
+    print(msg);
+    while (1) {}
+}
+
+static struct tss tss;
+static struct gdt gdt_real[4];
+static struct gdt_structured gdt_structured[4] = {
+    {.base = 0x00, .limit = 0x00, .type = 0x00},               // Null segment
+    {.base = 0x00, .limit = 0xffffffff, .type = 0x9a},        // Kernel code
+    {.base = 0x00, .limit = 0xffffffff, .type = 0x92},        // Kernel data
+    {.base = (uint32_t)&tss, .limit = sizeof(tss), .type = 0xE9} // TSS
+};
+
 void kernel_main()
 {
     terminal_initialize();
-    print("Hello world!\ntest");
+
+    memset(gdt_real, 0x00, sizeof(gdt_real));
+    gdt_structured_to_gdt(gdt_real, gdt_structured, 4);
+    struct gdt_descriptor desc;
+    desc.size = sizeof(gdt_real) - 1;
+    desc.address = (uint32_t)gdt_real;
+    gdt_load(&desc);
+
+    memset(&tss, 0x00, sizeof(tss));
+    tss.esp0 = 0x600000;
+    tss.ss0 = GDT_KERNEL_DATA_SELECTOR;
+    tss_load(GDT_TSS_SELECTOR);
+
+    print("Hello world!\n");
 }

@@ -1,8 +1,11 @@
 FILES = ./build/kernel.asm.o \
-	./build/kernel.o \
-	./build/memory.o \
-	./build/string.o \
-	./build/io.o
+        ./build/kernel.o \
+        ./build/gdt.o \
+        ./build/gdt.asm.o \
+        ./build/tss.asm.o \
+        ./build/memory.o \
+        ./build/string.o \
+        ./build/io.o
 INCLUDES = -I./src
 FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign-loops -fstrength-reduce -fomit-frame-pointer -finline-functions -Wno-unused-function -fno-builtin -Werror -Wno-unused-label -Wno-cpp -Wno-unused-parameter -nostdlib -nostartfiles -nodefaultlibs -Wall -O0 -Iinc
 
@@ -24,6 +27,15 @@ all: ./bin/boot.bin ./bin/kernel.bin
 
 ./build/kernel.o: ./src/kernel.c
 	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/kernel.c -o ./build/kernel.o
+
+./build/gdt.o: ./src/gdt/gdt.c
+	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/gdt/gdt.c -o ./build/gdt.o
+
+./build/gdt.asm.o: ./src/gdt/gdt.asm
+	nasm -f elf -g ./src/gdt/gdt.asm -o ./build/gdt.asm.o
+
+./build/tss.asm.o: ./src/task/tss.asm
+	nasm -f elf -g ./src/task/tss.asm -o ./build/tss.asm.o
 
 ./build/memory.o: ./src/memory/memory.c
 	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/memory/memory.c -o ./build/memory.o
