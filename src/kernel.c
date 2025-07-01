@@ -5,6 +5,7 @@
 #include "task/tss.h"
 #include "idt/idt.h"
 #include "memory/heap/kheap.h"
+#include "memory/paging/paging.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -107,6 +108,12 @@ void kernel_main()
 
     // Ignore spurious timer interrupts until proper handlers exist
     idt_register_interrupt_callback(0x20, interrupt_ignore);
+
+    struct paging_4gb_chunk* kernel_chunk =
+        paging_new_4gb(PAGING_IS_WRITEABLE | PAGING_IS_PRESENT |
+                       PAGING_ACCESS_FROM_ALL);
+    paging_switch(kernel_chunk);
+    enable_paging();
 
     enable_interrupts();
 
