@@ -14,7 +14,7 @@ FILES = ./build/kernel.asm.o \
 	./build/memory/paging/paging.asm.o
 INCLUDES = -I./src -I./src/gdt -I./src/task -I./src/idt
 BUILD_DIRS = ./bin ./build/memory/heap ./build/memory/paging
-FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign-loops -fstrength-reduce -fomit-frame-pointer -finline-functions -Wno-unused-function -fno-builtin -Werror -Wno-unused-label -Wno-cpp -Wno-unused-parameter -nostdlib -nostartfiles -nodefaultlibs -Wall -O0 -Iinc
+FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign-loops -fstrength-reduce -fomit-frame-pointer -finline-functions -Wno-unused-function -fno-builtin -Werror -Wno-unused-label -Wno-cpp -Wno-unused-parameter -nostdlib -nostartfiles -nodefaultlibs -Wall -O0 -Iinc -fno-pie -no-pie
 
 dirs:
 	mkdir -p $(BUILD_DIRS)
