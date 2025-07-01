@@ -10,6 +10,7 @@
 #include "disk/disk.h"
 #include "disk/streamer.h"
 #include "fs/file.h"
+#include "io/io.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -133,6 +134,10 @@ void kernel_main()
     paging_switch(kernel_chunk);
     enable_paging();
     print("Paging enabled.\n");
+
+    // Unmask timer (IRQ0) and keyboard (IRQ1) lines now that handlers exist
+    outb(0x21, 0xFC);   // enable IRQ0 and IRQ1 only
+    outb(0xA1, 0xFF);   // keep all slave PIC IRQs masked
 
     enable_interrupts();
     print("Interrupts on.\n");
