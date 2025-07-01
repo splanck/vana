@@ -116,3 +116,30 @@ int tonumericdigit(char c)
 {
     return c - 48;
 }
+
+void int_to_string(int value, char* out)
+{
+    char temp[32];
+    int i = 0;
+
+    if (value == 0)
+    {
+        out[0] = '0';
+        out[1] = '\0';
+        return;
+    }
+
+    while (value > 0)
+    {
+        int digit = value % 10;
+        temp[i++] = (char)(digit + '0');
+        value /= 10;
+    }
+
+    int j = 0;
+    while (i > 0)
+    {
+        out[j++] = temp[--i];
+    }
+    out[j] = '\0';
+}
