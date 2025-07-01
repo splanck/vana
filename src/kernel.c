@@ -69,18 +69,18 @@ void panic(const char* msg)
     while (1) {}
 }
 
-static struct tss tss;
-static struct gdt gdt_real[4];
-static struct gdt_structured gdt_structured[4] = {
-    {.base = 0x00, .limit = 0x00, .type = 0x00},               // Null segment
-    {.base = 0x00, .limit = 0xffffffff, .type = 0x9a},        // Kernel code
-    {.base = 0x00, .limit = 0xffffffff, .type = 0x92},        // Kernel data
-    {.base = (uint32_t)&tss, .limit = sizeof(tss), .type = 0xE9} // TSS
-};
-
 void kernel_main()
 {
     terminal_initialize();
+
+    struct tss tss;
+    struct gdt gdt_real[4];
+    struct gdt_structured gdt_structured[4] = {
+        {.base = 0x00, .limit = 0x00, .type = 0x00},                // Null segment
+        {.base = 0x00, .limit = 0xffffffff, .type = 0x9a},         // Kernel code
+        {.base = 0x00, .limit = 0xffffffff, .type = 0x92},         // Kernel data
+        {.base = (uint32_t)&tss, .limit = sizeof(tss), .type = 0xE9} // TSS
+    };
 
     memset(gdt_real, 0x00, sizeof(gdt_real));
     gdt_structured_to_gdt(gdt_real, gdt_structured, 4);
