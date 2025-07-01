@@ -1,4 +1,6 @@
 #include "kernel.h"
+#include "string/string.h"
+#include "memory/memory.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -49,16 +51,6 @@ void terminal_initialize()
 }
 
 
-size_t strlen(const char* str)
-{
-    size_t len = 0;
-    while(str[len])
-    {
-        len++;
-    }
-
-    return len;
-}
 
 void print(const char* str)
 {
