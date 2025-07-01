@@ -57,10 +57,13 @@ void idt_init()
     idtr_descriptor.limit = sizeof(idt_descriptors) - 1;
     idtr_descriptor.base = (uint32_t)idt_descriptors;
 
+
     for (int i = 0; i < IDT_TOTAL_DESCRIPTORS; i++)
     {
         idt_set(i, interrupt_pointer_table[i]);
     }
+
+    memset(interrupt_callbacks, 0, sizeof(interrupt_callbacks));
 
     idt_load(&idtr_descriptor);
 }
