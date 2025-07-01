@@ -20,6 +20,13 @@ void interrupt_ignore(struct interrupt_frame* frame)
     outb(0x20, 0x20);
 }
 
+static void idt_handle_exception(struct interrupt_frame* frame)
+{
+    (void)frame;
+    print("CPU exception\n");
+    outb(0x20, 0x20);
+}
+
 static void idt_set(int interrupt_no, void* address)
 {
     struct idt_desc* desc = &idt_descriptors[interrupt_no];
@@ -66,6 +73,12 @@ void idt_init()
     memset(interrupt_callbacks, 0, sizeof(interrupt_callbacks));
 
     idt_load(&idtr_descriptor);
+
+    for (int i = 0; i <= 31; i++)
+    {
+        idt_register_interrupt_callback(i, idt_handle_exception);
+    }
+    idt_register_interrupt_callback(0x27, interrupt_ignore);
 }
 
 int idt_register_interrupt_callback(int interrupt, INTERRUPT_CALLBACK_FUNCTION callback)
