@@ -1,6 +1,9 @@
 #include "keyboard.h"
 #include "status.h"
 #include "classic.h"
+#include "io/io.h"
+#include "idt/idt.h"
+#include <stdint.h>
 
 static struct keyboard* keyboard_list_head = 0;
 static struct keyboard* keyboard_list_last = 0;
@@ -14,9 +17,12 @@ struct keyboard_buffer
 
 static struct keyboard_buffer kbuffer;
 
+static void keyboard_irq_handler(struct interrupt_frame* frame);
+
 void keyboard_init()
 {
     keyboard_insert(classic_init());
+    idt_register_interrupt_callback(ISR_KEYBOARD_INTERRUPT, keyboard_irq_handler);
 }
 
 int keyboard_insert(struct keyboard* keyboard)
@@ -45,6 +51,15 @@ int keyboard_insert(struct keyboard* keyboard)
 static int keyboard_get_tail_index()
 {
     return kbuffer.tail % VANA_KEYBOARD_BUFFER_SIZE;
+}
+
+static void keyboard_irq_handler(struct interrupt_frame* frame)
+{
+    (void)frame;
+    uint8_t scancode = insb(KEYBOARD_INPUT_PORT);
+    insb(KEYBOARD_INPUT_PORT);
+    keyboard_push((char)scancode);
+    outb(0x20, 0x20);
 }
 
 void keyboard_backspace()
