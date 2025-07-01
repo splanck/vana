@@ -18,17 +18,12 @@ SECTIONS
         *(.data)
     }
 
-    .bss : ALIGN(4096)
+    .bss (NOLOAD) : ALIGN(4096)
     {
         *(COMMON)
         *(.bss)
     }
 
-    /* Reserve space for the kernel heap */
-    .heap : ALIGN(4096)
-    {
-        . = . + 104857600; /* 100MB */
-    }
 
     .asm : ALIGN(4096)
     {
