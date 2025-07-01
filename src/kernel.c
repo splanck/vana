@@ -101,6 +101,9 @@ void kernel_main()
     // With the GDT and TSS active we can setup the IDT
     idt_init();
 
+    // Ignore spurious timer interrupts until proper handlers exist
+    idt_register_interrupt_callback(0x20, interrupt_ignore);
+
     enable_interrupts();
 
     print("Hello world!\n");

@@ -43,5 +43,6 @@ void idt_init();
 void enable_interrupts();
 void disable_interrupts();
 int idt_register_interrupt_callback(int interrupt, INTERRUPT_CALLBACK_FUNCTION interrupt_callback);
+void interrupt_ignore(struct interrupt_frame* frame);
 
 #endif
