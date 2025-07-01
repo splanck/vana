@@ -19,6 +19,8 @@ static INTERRUPT_CALLBACK_FUNCTION interrupt_callbacks[IDT_TOTAL_DESCRIPTORS];
 void interrupt_ignore(struct interrupt_frame* frame)
 {
     (void)frame;
+    outb(0xA0, 0x20);   // acknowledge slave
+    outb(0x20, 0x20);   // acknowledge master
 }
 
 static void idt_handle_exception(struct interrupt_frame* frame)
