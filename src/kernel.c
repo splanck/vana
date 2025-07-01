@@ -74,6 +74,9 @@ void kernel_main()
 {
     terminal_initialize();
 
+    // Ensure no interrupts fire during early setup
+    disable_interrupts();
+
     struct tss tss;
     struct gdt gdt_real[4];
     struct gdt_structured gdt_structured[4] = {
@@ -90,12 +93,13 @@ void kernel_main()
     desc.address = (uint32_t)gdt_real;
     gdt_load(&desc);
 
-    idt_init();
-
     memset(&tss, 0x00, sizeof(tss));
     tss.esp0 = 0x600000;
     tss.ss0 = GDT_KERNEL_DATA_SELECTOR;
     tss_load(GDT_TSS_SELECTOR);
+
+    // With the GDT and TSS active we can setup the IDT
+    idt_init();
 
     enable_interrupts();
 
