@@ -7,6 +7,8 @@
   ```
 - The tools will be installed in $HOME/opt/cross when the build-toolchain.sh script completes. Be sure to give it several minutes since its building gcc and binutils.
 
+You need to build the toolchain before running any builds or tests.
+
 ## Reference Kernel Examples
 
 The `example_kernel_src/` directory contains small, self-contained demos of kernel subsystems (boot, C setup, simple syscall, VGA text, paging, etc.).
