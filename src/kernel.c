@@ -3,6 +3,7 @@
 #include "memory/memory.h"
 #include "gdt/gdt.h"
 #include "task/tss.h"
+#include "idt/idt.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -89,10 +90,14 @@ void kernel_main()
     desc.address = (uint32_t)gdt_real;
     gdt_load(&desc);
 
+    idt_init();
+
     memset(&tss, 0x00, sizeof(tss));
     tss.esp0 = 0x600000;
     tss.ss0 = GDT_KERNEL_DATA_SELECTOR;
     tss_load(GDT_TSS_SELECTOR);
+
+    enable_interrupts();
 
     print("Hello world!\n");
 }
