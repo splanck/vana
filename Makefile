@@ -1,21 +1,25 @@
+DISK_OBJS = ./build/disk/disk.o \
+            ./build/disk/streamer.o
+
+KEYBOARD_OBJS = ./build/keyboard/keyboard.o \
+                ./build/keyboard/classic.o
+
 FILES = ./build/kernel.asm.o \
-	./build/kernel.o \
-	./build/gdt.o \
-	./build/gdt.asm.o \
-	./build/tss.asm.o \
-	./build/idt.o \
-	./build/idt.asm.o \
-	./build/memory.o \
-	./build/string.o \
+        ./build/kernel.o \
+        ./build/gdt.o \
+        ./build/gdt.asm.o \
+        ./build/tss.asm.o \
+        ./build/idt.o \
+        ./build/idt.asm.o \
+        ./build/memory.o \
+        ./build/string.o \
         ./build/io.o \
-        ./build/disk/disk.o \
-        ./build/disk/streamer.o \
-        ./build/keyboard/keyboard.o \
-        ./build/keyboard/classic.o \
-	./build/memory/heap/heap.o \
-	./build/memory/heap/kheap.o \
-	./build/memory/paging/paging.o \
-	./build/memory/paging/paging.asm.o
+        $(DISK_OBJS) \
+        $(KEYBOARD_OBJS) \
+        ./build/memory/heap/heap.o \
+        ./build/memory/heap/kheap.o \
+        ./build/memory/paging/paging.o \
+        ./build/memory/paging/paging.asm.o
 INCLUDES = -I./src -I./src/gdt -I./src/task -I./src/idt
 BUILD_DIRS = ./bin ./build/memory/heap ./build/memory/paging ./build/keyboard ./build/disk
 FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign-loops -fstrength-reduce -fomit-frame-pointer -finline-functions -Wno-unused-function -fno-builtin -Werror -Wno-unused-label -Wno-cpp -Wno-unused-parameter -nostdlib -nostartfiles -nodefaultlibs -Wall -O0 -Iinc -fno-pie -no-pie
