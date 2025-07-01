@@ -7,7 +7,9 @@ FILES = ./build/kernel.asm.o \
 	./build/idt.asm.o \
 	./build/memory.o \
 	./build/string.o \
-	./build/io.o \
+        ./build/io.o \
+        ./build/disk/disk.o \
+        ./build/disk/streamer.o \
         ./build/keyboard/keyboard.o \
         ./build/keyboard/classic.o \
 	./build/memory/heap/heap.o \
@@ -15,7 +17,7 @@ FILES = ./build/kernel.asm.o \
 	./build/memory/paging/paging.o \
 	./build/memory/paging/paging.asm.o
 INCLUDES = -I./src -I./src/gdt -I./src/task -I./src/idt
-BUILD_DIRS = ./bin ./build/memory/heap ./build/memory/paging ./build/keyboard
+BUILD_DIRS = ./bin ./build/memory/heap ./build/memory/paging ./build/keyboard ./build/disk
 FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign-loops -fstrength-reduce -fomit-frame-pointer -finline-functions -Wno-unused-function -fno-builtin -Werror -Wno-unused-label -Wno-cpp -Wno-unused-parameter -nostdlib -nostartfiles -nodefaultlibs -Wall -O0 -Iinc -fno-pie -no-pie
 
 dirs:
@@ -63,6 +65,12 @@ all: dirs ./bin/boot.bin ./bin/kernel.bin
 
 ./build/io.o: ./src/io/io.asm
 	nasm -f elf -g ./src/io/io.asm -o ./build/io.o
+
+./build/disk/disk.o: ./src/disk/disk.c
+	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/disk/disk.c -o ./build/disk/disk.o
+
+./build/disk/streamer.o: ./src/disk/streamer.c
+	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/disk/streamer.c -o ./build/disk/streamer.o
 
 ./build/keyboard/keyboard.o: ./src/keyboard/keyboard.c
 	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/keyboard/keyboard.c -o ./build/keyboard/keyboard.o
