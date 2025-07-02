@@ -1,7 +1,9 @@
 SRC_DIR=./src
 BUILD_DIR=./build
 
-FILES=$(BUILD_DIR)/vana.asm.o \
+FILES=$(BUILD_DIR)/start.asm.o \
+      $(BUILD_DIR)/start.o \
+      $(BUILD_DIR)/vana.asm.o \
       $(BUILD_DIR)/vana.o \
       $(BUILD_DIR)/stdlib.o \
       $(BUILD_DIR)/stdio.o \
