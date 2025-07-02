@@ -5,6 +5,8 @@
 #include "memory/memory.h"
 #include "kernel.h"
 #include "string/string.h"
+#include "config.h"
+#include "task/task.h"
 
 #define IDT_TOTAL_DESCRIPTORS 256
 
@@ -13,6 +15,9 @@ static struct idtr_desc idtr_descriptor;
 
 extern void* interrupt_pointer_table[IDT_TOTAL_DESCRIPTORS];
 extern void idt_load(struct idtr_desc* ptr);
+extern void isr80h_wrapper();
+
+static ISR80H_COMMAND isr80h_commands[VANA_MAX_ISR80H_COMMANDS];
 
 static INTERRUPT_CALLBACK_FUNCTION interrupt_callbacks[IDT_TOTAL_DESCRIPTORS];
 
@@ -80,6 +85,8 @@ void idt_init()
         idt_set(i, interrupt_pointer_table[i]);
     }
 
+    idt_set(0x80, isr80h_wrapper);
+
     memset(interrupt_callbacks, 0, sizeof(interrupt_callbacks));
 
     idt_load(&idtr_descriptor);
@@ -102,4 +109,48 @@ int idt_register_interrupt_callback(int interrupt, INTERRUPT_CALLBACK_FUNCTION c
 
     interrupt_callbacks[interrupt] = callback;
     return 0;
+}
+
+void isr80h_register_command(int command_id, ISR80H_COMMAND command)
+{
+    if (command_id < 0 || command_id >= VANA_MAX_ISR80H_COMMANDS)
+    {
+        panic("isr80h command out of bounds\n");
+    }
+
+    if (isr80h_commands[command_id])
+    {
+        panic("isr80h command already registered\n");
+    }
+
+    isr80h_commands[command_id] = command;
+}
+
+static void* isr80h_handle_command(int command, struct interrupt_frame* frame)
+{
+    void* result = 0;
+
+    if (command < 0 || command >= VANA_MAX_ISR80H_COMMANDS)
+    {
+        return 0;
+    }
+
+    ISR80H_COMMAND func = isr80h_commands[command];
+    if (!func)
+    {
+        return 0;
+    }
+
+    result = func(frame);
+    return result;
+}
+
+void* isr80h_handler(int command, struct interrupt_frame* frame)
+{
+    void* res = 0;
+    kernel_page();
+    task_current_save_state(frame);
+    res = isr80h_handle_command(command, frame);
+    task_page();
+    return res;
 }

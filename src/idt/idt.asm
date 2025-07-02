@@ -3,11 +3,13 @@ section .asm
 
 extern interrupt_handler
 extern no_interrupt_handler
+extern isr80h_handler
 
 global idt_load
 global no_interrupt
 global enable_interrupts
 global disable_interrupts
+global isr80h_wrapper
 global interrupt_pointer_table
 
 enable_interrupts:
@@ -49,6 +51,22 @@ no_interrupt:
     interrupt i
 %assign i i+1
 %endrep
+
+isr80h_wrapper:
+    ; INTERRUPT FRAME START
+    pushad
+    ; INTERRUPT FRAME END
+    push esp
+    push eax
+    call isr80h_handler
+    mov [tmp_res], eax
+    add esp, 8
+    popad
+    mov eax, [tmp_res]
+    iretd
+
+section .data
+tmp_res: dd 0
 
 %macro interrupt_array_entry 1
     dd int%1
