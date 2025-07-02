@@ -7,6 +7,7 @@
 #include "string/string.h"
 #include "config.h"
 #include "task/task.h"
+#include "task/process.h"
 
 #define IDT_TOTAL_DESCRIPTORS 256
 
@@ -31,7 +32,8 @@ void interrupt_ignore(struct interrupt_frame* frame)
 static void idt_handle_exception(struct interrupt_frame* frame)
 {
     (void)frame;
-    print("CPU exception\n");
+    process_terminate(task_current()->process);
+    task_next();
 }
 
 static void idt_set(int interrupt_no, void* address, uint8_t type_attr)
