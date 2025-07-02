@@ -148,10 +148,10 @@ void kernel_main()
     print("Paging enabled.\n");
 
     struct process* process = NULL;
-    int res = process_load_switch("0:/blank.elf", &process);
+    int res = process_load_switch("0:/shell.elf", &process);
     if (res != VANA_ALL_OK)
     {
-        panic("Failed to load blank.elf\n");
+        panic("Failed to load shell.elf\n");
     }
 
     // Unmask timer (IRQ0) and keyboard (IRQ1) lines now that handlers exist
