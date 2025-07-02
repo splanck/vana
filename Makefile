@@ -6,6 +6,8 @@ KEYBOARD_OBJS = ./build/keyboard/keyboard.o \
 TASK_OBJS = ./build/task/task.o \
             ./build/task/process.o \
             ./build/task/task.asm.o
+LOADER_OBJS = ./build/loader/formats/elf.o \
+              ./build/loader/formats/elfloader.o
 
 FILES = ./build/kernel.asm.o \
         ./build/kernel.o \
@@ -21,6 +23,7 @@ FILES = ./build/kernel.asm.o \
         $(DISK_OBJS) \
         $(KEYBOARD_OBJS) \
         $(TASK_OBJS) \
+        $(LOADER_OBJS) \
         ./build/memory/heap/heap.o \
         ./build/memory/heap/kheap.o \
         ./build/memory/paging/paging.o \
@@ -29,7 +32,7 @@ FILES = ./build/kernel.asm.o \
         ./build/fs/pparser.o \
         ./build/fs/fat/fat16.o
 INCLUDES = -I./src -I./src/gdt -I./src/task -I./src/idt -I./src/fs -I./src/fs/fat
-BUILD_DIRS = ./bin ./build/memory/heap ./build/memory/paging ./build/keyboard ./build/disk ./build/fs ./build/fs/fat ./build/task
+BUILD_DIRS = ./bin ./build/memory/heap ./build/memory/paging ./build/keyboard ./build/disk ./build/fs ./build/fs/fat ./build/task ./build/loader/formats
 FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign-loops -fstrength-reduce -fomit-frame-pointer -finline-functions -Wno-unused-function -fno-builtin -Werror -Wno-unused-label -Wno-cpp -Wno-unused-parameter -nostdlib -nostartfiles -nodefaultlibs -Wall -O0 -Iinc -fno-pie -no-pie
 
 dirs:
@@ -122,6 +125,12 @@ all: dirs ./bin/boot.bin ./bin/kernel.bin
 
 ./build/fs/fat/fat16.o: ./src/fs/fat/fat16.c
 	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/fs/fat/fat16.c -o ./build/fs/fat/fat16.o
+
+./build/loader/formats/elf.o: ./src/loader/formats/elf.c
+	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/loader/formats/elf.c -o ./build/loader/formats/elf.o
+
+./build/loader/formats/elfloader.o: ./src/loader/formats/elfloader.c
+	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/loader/formats/elfloader.c -o ./build/loader/formats/elfloader.o
 
 clean:
 	rm -rf ./bin/boot.bin
