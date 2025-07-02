@@ -3,6 +3,9 @@ DISK_OBJS = ./build/disk/disk.o \
 
 KEYBOARD_OBJS = ./build/keyboard/keyboard.o \
                 ./build/keyboard/classic.o
+TASK_OBJS = ./build/task/task.o \
+            ./build/task/process.o \
+            ./build/task/task.asm.o
 
 FILES = ./build/kernel.asm.o \
         ./build/kernel.o \
@@ -17,6 +20,7 @@ FILES = ./build/kernel.asm.o \
         ./build/io.o \
         $(DISK_OBJS) \
         $(KEYBOARD_OBJS) \
+        $(TASK_OBJS) \
         ./build/memory/heap/heap.o \
         ./build/memory/heap/kheap.o \
         ./build/memory/paging/paging.o \
@@ -25,7 +29,7 @@ FILES = ./build/kernel.asm.o \
         ./build/fs/pparser.o \
         ./build/fs/fat/fat16.o
 INCLUDES = -I./src -I./src/gdt -I./src/task -I./src/idt -I./src/fs -I./src/fs/fat
-BUILD_DIRS = ./bin ./build/memory/heap ./build/memory/paging ./build/keyboard ./build/disk ./build/fs ./build/fs/fat
+BUILD_DIRS = ./bin ./build/memory/heap ./build/memory/paging ./build/keyboard ./build/disk ./build/fs ./build/fs/fat ./build/task
 FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign-loops -fstrength-reduce -fomit-frame-pointer -finline-functions -Wno-unused-function -fno-builtin -Werror -Wno-unused-label -Wno-cpp -Wno-unused-parameter -nostdlib -nostartfiles -nodefaultlibs -Wall -O0 -Iinc -fno-pie -no-pie
 
 dirs:
@@ -64,6 +68,15 @@ all: dirs ./bin/boot.bin ./bin/kernel.bin
 
 ./build/idt.asm.o: ./src/idt/idt.asm
 	nasm -f elf -g ./src/idt/idt.asm -o ./build/idt.asm.o
+
+./build/task/task.o: ./src/task/task.c
+	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/task/task.c -o ./build/task/task.o
+
+./build/task/process.o: ./src/task/process.c
+	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/task/process.c -o ./build/task/process.o
+
+./build/task/task.asm.o: ./src/task/task.asm
+	nasm -f elf -g ./src/task/task.asm -o ./build/task/task.asm.o
 
 ./build/memory.o: ./src/memory/memory.c
 	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/memory/memory.c -o ./build/memory.o
