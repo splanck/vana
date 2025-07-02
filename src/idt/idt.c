@@ -126,7 +126,7 @@ void isr80h_register_command(int command_id, ISR80H_COMMAND command)
     isr80h_commands[command_id] = command;
 }
 
-static void* isr80h_handle_command(int command, struct interrupt_frame* frame)
+void* isr80h_handle_command(int command, struct interrupt_frame* frame)
 {
     void* result = 0;
 
