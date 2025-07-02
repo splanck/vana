@@ -13,8 +13,11 @@ FILES=$(BUILD_DIR)/start.asm.o \
 INCLUDES=-I$(SRC_DIR)
 FLAGS=-g -ffreestanding -fno-builtin -Wall -O0 -nostdlib -nostartfiles -nodefaultlibs
 
-all: $(FILES)
+all: $(BUILD_DIR) $(FILES)
 	i686-elf-ld -m elf_i386 -relocatable $(FILES) -o $(BUILD_DIR)/libvana.o
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
 
 $(BUILD_DIR)/%.asm.o: $(SRC_DIR)/%.asm
 	nasm -f elf $< -o $@
