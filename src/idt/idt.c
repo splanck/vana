@@ -34,13 +34,13 @@ static void idt_handle_exception(struct interrupt_frame* frame)
     print("CPU exception\n");
 }
 
-static void idt_set(int interrupt_no, void* address)
+static void idt_set(int interrupt_no, void* address, uint8_t type_attr)
 {
     struct idt_desc* desc = &idt_descriptors[interrupt_no];
     desc->offset_1 = (uint32_t)address & 0xFFFF;
     desc->selector = GDT_KERNEL_CODE_SELECTOR;
     desc->zero = 0;
-    desc->type_attr = 0x8E;
+    desc->type_attr = type_attr;
     desc->offset_2 = (uint32_t)address >> 16;
 }
 
@@ -82,10 +82,10 @@ void idt_init()
 
     for (int i = 0; i < IDT_TOTAL_DESCRIPTORS; i++)
     {
-        idt_set(i, interrupt_pointer_table[i]);
+        idt_set(i, interrupt_pointer_table[i], IDT_DESC_KERNEL_INTERRUPT_GATE);
     }
 
-    idt_set(0x80, isr80h_wrapper);
+    idt_set(0x80, isr80h_wrapper, IDT_DESC_USER_INTERRUPT_GATE);
 
     memset(interrupt_callbacks, 0, sizeof(interrupt_callbacks));
 
