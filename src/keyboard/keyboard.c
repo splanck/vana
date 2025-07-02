@@ -70,6 +70,16 @@ KEYBOARD_CAPS_LOCK_STATE keyboard_get_capslock(struct keyboard* keyboard)
     return keyboard->capslock_state;
 }
 
+void keyboard_set_shift(struct keyboard* keyboard, int state)
+{
+    keyboard->shift_state = state;
+}
+
+int keyboard_get_shift(const struct keyboard* keyboard)
+{
+    return keyboard->shift_state;
+}
+
 void keyboard_push(char c)
 {
     if (c == 0)
