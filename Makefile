@@ -52,7 +52,7 @@ user_programs_clean:
 	- cd ./programs/blank && $(MAKE) clean
 	- cd ./programs/shell && $(MAKE) clean
 
-all: dirs ./bin/boot.bin ./bin/kernel.bin user_programs
+all: user_programs dirs ./bin/boot.bin ./bin/kernel.bin
 	rm -rf ./bin/os.bin
 	dd if=./bin/boot.bin >> ./bin/os.bin
 	dd if=./bin/kernel.bin >> ./bin/os.bin
