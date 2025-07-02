@@ -6,6 +6,9 @@
 #include <stddef.h>
 
 #define CLASSIC_KEYBOARD_CAPSLOCK 0x3A
+// Scancode values for the left and right shift keys
+#define CLASSIC_KEYBOARD_LSHIFT 0x2A
+#define CLASSIC_KEYBOARD_RSHIFT 0x36
 
 int classic_keyboard_init();
 
@@ -64,7 +67,16 @@ void classic_keyboard_handle_interrupt()
     uint8_t scancode = insb(KEYBOARD_INPUT_PORT);
     insb(KEYBOARD_INPUT_PORT);
 
-    if(scancode & CLASSIC_KEYBOARD_KEY_RELEASED)
+    int released = scancode & CLASSIC_KEYBOARD_KEY_RELEASED;
+    uint8_t keycode = scancode & ~CLASSIC_KEYBOARD_KEY_RELEASED;
+
+    if (keycode == CLASSIC_KEYBOARD_LSHIFT || keycode == CLASSIC_KEYBOARD_RSHIFT)
+    {
+        keyboard_set_shift(&classic_keyboard, released ? KEYBOARD_SHIFT_OFF : KEYBOARD_SHIFT_ON);
+        return;
+    }
+
+    if (released)
     {
         return;
     }
