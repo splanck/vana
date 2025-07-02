@@ -8,6 +8,10 @@ TASK_OBJS = ./build/task/task.o \
             ./build/task/task.asm.o
 LOADER_OBJS = ./build/loader/formats/elf.o \
               ./build/loader/formats/elfloader.o
+ISR80H_OBJS = ./build/isr80h/isr80h.o \
+             ./build/isr80h/io.o \
+             ./build/isr80h/heap.o \
+             ./build/isr80h/process.o
 
 FILES = ./build/kernel.asm.o \
         ./build/kernel.o \
@@ -24,6 +28,7 @@ FILES = ./build/kernel.asm.o \
         $(KEYBOARD_OBJS) \
         $(TASK_OBJS) \
         $(LOADER_OBJS) \
+        $(ISR80H_OBJS) \
         ./build/memory/heap/heap.o \
         ./build/memory/heap/kheap.o \
         ./build/memory/paging/paging.o \
@@ -31,8 +36,8 @@ FILES = ./build/kernel.asm.o \
         ./build/fs/file.o \
         ./build/fs/pparser.o \
         ./build/fs/fat/fat16.o
-INCLUDES = -I./src -I./src/gdt -I./src/task -I./src/idt -I./src/fs -I./src/fs/fat -I./src/loader/formats
-BUILD_DIRS = ./bin ./build/memory/heap ./build/memory/paging ./build/keyboard ./build/disk ./build/fs ./build/fs/fat ./build/task ./build/loader/formats
+INCLUDES = -I./src -I./src/gdt -I./src/task -I./src/idt -I./src/fs -I./src/fs/fat -I./src/loader/formats -I./src/isr80h
+BUILD_DIRS = ./bin ./build/memory/heap ./build/memory/paging ./build/keyboard ./build/disk ./build/fs ./build/fs/fat ./build/task ./build/loader/formats ./build/isr80h
 FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign-loops -fstrength-reduce -fomit-frame-pointer -finline-functions -Wno-unused-function -fno-builtin -Werror -Wno-unused-label -Wno-cpp -Wno-unused-parameter -nostdlib -nostartfiles -nodefaultlibs -Wall -O0 -Iinc -fno-pie -no-pie
 
 dirs:
@@ -130,7 +135,19 @@ all: dirs ./bin/boot.bin ./bin/kernel.bin
 	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/loader/formats/elf.c -o ./build/loader/formats/elf.o
 
 ./build/loader/formats/elfloader.o: ./src/loader/formats/elfloader.c
-	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/loader/formats/elfloader.c -o ./build/loader/formats/elfloader.o
+	        i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/loader/formats/elfloader.c -o ./build/loader/formats/elfloader.o
+
+./build/isr80h/isr80h.o: ./src/isr80h/isr80h.c
+		i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/isr80h.c -o ./build/isr80h/isr80h.o
+
+./build/isr80h/io.o: ./src/isr80h/io.c
+		i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/io.c -o ./build/isr80h/io.o
+
+./build/isr80h/heap.o: ./src/isr80h/heap.c
+		i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/heap.c -o ./build/isr80h/heap.o
+
+./build/isr80h/process.o: ./src/isr80h/process.c
+		i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/process.c -o ./build/isr80h/process.o
 
 clean:
 	rm -rf ./bin/boot.bin
