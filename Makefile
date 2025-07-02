@@ -42,11 +42,25 @@ FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign
 dirs:
 	mkdir -p $(BUILD_DIRS)
 
-all: dirs ./bin/boot.bin ./bin/kernel.bin
+user_programs:
+	cd ./programs/stdlib && $(MAKE) all
+	cd ./programs/blank && $(MAKE) all
+	cd ./programs/shell && $(MAKE) all
+
+user_programs_clean:
+	- cd ./programs/stdlib && $(MAKE) clean
+	- cd ./programs/blank && $(MAKE) clean
+	- cd ./programs/shell && $(MAKE) clean
+
+all: dirs ./bin/boot.bin ./bin/kernel.bin user_programs
 	rm -rf ./bin/os.bin
 	dd if=./bin/boot.bin >> ./bin/os.bin
 	dd if=./bin/kernel.bin >> ./bin/os.bin
-	dd if=/dev/zero bs=512 count=100 >> ./bin/os.bin
+	dd if=/dev/zero bs=1048576 count=16 >> ./bin/os.bin
+	sudo mount -t vfat ./bin/os.bin /mnt/d
+	sudo cp ./programs/blank/blank.elf /mnt/d
+	sudo cp ./programs/shell/shell.elf /mnt/d
+	sudo umount /mnt/d
 
 ./bin/kernel.bin: $(FILES)
 	i686-elf-ld -g -relocatable $(FILES) -o ./build/kernelfull.o
@@ -148,7 +162,7 @@ all: dirs ./bin/boot.bin ./bin/kernel.bin
 ./build/isr80h/process.o: ./src/isr80h/process.c
 		i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/process.c -o ./build/isr80h/process.o
 
-clean:
+clean: user_programs_clean
 	rm -rf ./bin/boot.bin
 	rm -rf ./bin/kernel.bin
 	rm -rf ./bin/os.bin
