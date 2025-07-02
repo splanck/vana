@@ -57,7 +57,7 @@ all: user_programs dirs ./bin/boot.bin ./bin/kernel.bin
 	dd if=./bin/boot.bin >> ./bin/os.bin
 	dd if=./bin/kernel.bin >> ./bin/os.bin
 	dd if=/dev/zero bs=1048576 count=16 >> ./bin/os.bin
-	# Ensure the mount point exists
+	# Mount the disk image and copy user programs
 	sudo mkdir -p /mnt/d
 	sudo mount -t vfat ./bin/os.bin /mnt/d
 	sudo cp ./programs/blank/blank.elf /mnt/d
