@@ -8,7 +8,27 @@ _start:
     jmp short start
     nop
 
- times 33 db 0
+; FAT16 Header
+OEMIdentifier           db 'PEACHOS '
+BytesPerSector          dw 0x200
+SectorsPerCluster       db 0x80
+ReservedSectors         dw 200
+FATCopies               db 0x02
+RootDirEntries          dw 0x40
+NumSectors              dw 0x00
+MediaType               db 0xF8
+SectorsPerFat           dw 0x100
+SectorsPerTrack         dw 0x20
+NumberOfHeads           dw 0x40
+HiddenSectors           dd 0x00
+SectorsBig              dd 0x773594
+; Extended BPB
+DriveNumber             db 0x80
+WinNTBit                db 0x00
+Signature               db 0x29
+VolumeID                dd 0xD105
+VolumeIDString          db 'PEACHOS BOO'
+SystemIDString          db 'FAT16   '
  
 start:
     jmp 0:step2
@@ -19,6 +39,9 @@ step2:
     mov ds, ax
     mov es, ax
     mov ss, ax
+    mov fs, ax
+    mov es, ax
+
     mov sp, 0x7c00
     sti ; Enables Interrupts
 
@@ -60,8 +83,8 @@ gdt_descriptor:
     dw gdt_end - gdt_start-1
     dd gdt_start
  
-[BITS 32]
-load32:
+ [BITS 32]
+ load32:
     mov ax, DATA_SEG
     mov ds, ax
     mov es, ax
@@ -73,9 +96,13 @@ load32:
     in al, 0x92
     or al, 2
     out 0x92, al
+
+    ; For the loading...
     mov eax, 1
     mov ecx, 100
     mov edi, 0x0100000
+
+
     call ata_lba_read
     jmp CODE_SEG:0x0100000
 
