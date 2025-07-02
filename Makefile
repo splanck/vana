@@ -44,10 +44,12 @@ dirs:
 
 user_programs:
 	cd ./programs/stdlib && $(MAKE) all
+	cd ./programs/blank && $(MAKE) all
 	cd ./programs/shell && $(MAKE) all
 
 user_programs_clean:
 	- cd ./programs/stdlib && $(MAKE) clean
+	- cd ./programs/blank && $(MAKE) clean
 	- cd ./programs/shell && $(MAKE) clean
 
 all: user_programs dirs ./bin/boot.bin ./bin/kernel.bin
@@ -55,7 +57,9 @@ all: user_programs dirs ./bin/boot.bin ./bin/kernel.bin
 	dd if=./bin/boot.bin >> ./bin/os.bin
 	dd if=./bin/kernel.bin >> ./bin/os.bin
 	dd if=/dev/zero bs=1048576 count=16 >> ./bin/os.bin
+	sudo mkdir -p /mnt/d
 	sudo mount -t vfat ./bin/os.bin /mnt/d
+	sudo cp ./programs/blank/blank.elf /mnt/d
 	sudo cp ./programs/shell/shell.elf /mnt/d
 	sudo umount /mnt/d
 
