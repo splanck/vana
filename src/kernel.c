@@ -7,13 +7,17 @@
 #include "memory/heap/kheap.h"
 #include "keyboard/keyboard.h"
 #include "memory/paging/paging.h"
+#include "task/process.h"
+#include "task/task.h"
 #include "disk/disk.h"
 #include "disk/streamer.h"
 #include "fs/file.h"
+#include "status.h"
 #include "io/io.h"
 #include <stddef.h>
 #include <stdint.h>
 
+static struct paging_4gb_chunk* kernel_chunk = 0;
 
 uint16_t* video_mem = 0;
 uint16_t terminal_row = 0;
@@ -86,6 +90,12 @@ void panic(const char* msg)
     while (1) {}
 }
 
+void kernel_page()
+{
+    kernel_registers();
+    paging_switch(kernel_chunk);
+}
+
 void kernel_main()
 {
     terminal_initialize();
@@ -128,12 +138,19 @@ void kernel_main()
 
     keyboard_init();
     print("Keyboard initialized.\n");
-    struct paging_4gb_chunk* kernel_chunk =
+    kernel_chunk =
         paging_new_4gb(PAGING_IS_WRITEABLE | PAGING_IS_PRESENT |
                        PAGING_ACCESS_FROM_ALL);
     paging_switch(kernel_chunk);
     enable_paging();
     print("Paging enabled.\n");
+
+    struct process* process = NULL;
+    int res = process_load_switch("0:/blank.elf", &process);
+    if (res != VANA_ALL_OK)
+    {
+        panic("Failed to load blank.elf\n");
+    }
 
     // Unmask timer (IRQ0) and keyboard (IRQ1) lines now that handlers exist
     outb(0x21, 0xFC);   // enable IRQ0 and IRQ1 only
@@ -142,7 +159,7 @@ void kernel_main()
     enable_interrupts();
     print("Interrupts on.\n");
 
-    print("Hello world!\n");
+    task_run_first_ever_task();
 
     disable_interrupts();
     for (;;) {
