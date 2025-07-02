@@ -9,9 +9,9 @@ int main(int argc, char** argv)
     {
         print("> ");
         char buf[1024];
-        peachos_terminal_readline(buf, sizeof(buf), true);
+        vana_terminal_readline(buf, sizeof(buf), true);
         print("\n");
-        peachos_system_run(buf);
+        vana_system_run(buf);
         
         print("\n");
     }
