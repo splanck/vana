@@ -8,10 +8,6 @@ TASK_OBJS = ./build/task/task.o \
             ./build/task/task.asm.o
 LOADER_OBJS = ./build/loader/formats/elf.o \
               ./build/loader/formats/elfloader.o
-ISR80H_OBJS = ./build/isr80h/isr80h.o \
-             ./build/isr80h/io.o \
-             ./build/isr80h/heap.o \
-             ./build/isr80h/process.o
 
 FILES = ./build/kernel.asm.o \
         ./build/kernel.o \
@@ -27,9 +23,12 @@ FILES = ./build/kernel.asm.o \
         $(DISK_OBJS) \
         $(KEYBOARD_OBJS) \
         $(TASK_OBJS) \
-        $(LOADER_OBJS) \
-        $(ISR80H_OBJS) \
-        ./build/memory/heap/heap.o \
+       $(LOADER_OBJS) \
+       ./build/isr80h/isr80h.o \
+       ./build/isr80h/io.o \
+       ./build/isr80h/heap.o \
+       ./build/isr80h/process.o \
+       ./build/memory/heap/heap.o \
         ./build/memory/heap/kheap.o \
         ./build/memory/paging/paging.o \
         ./build/memory/paging/paging.asm.o \
