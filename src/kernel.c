@@ -9,6 +9,7 @@
 #include "memory/paging/paging.h"
 #include "task/process.h"
 #include "task/task.h"
+#include "isr80h/isr80h.h"
 #include "disk/disk.h"
 #include "disk/streamer.h"
 #include "fs/file.h"
@@ -124,6 +125,7 @@ void kernel_main()
 
     // With the GDT and TSS active we can setup the IDT
     idt_init();
+    isr80h_register_commands();
     print("IDT initialized.\n");
 
     // Ignore spurious timer interrupts until proper handlers exist
