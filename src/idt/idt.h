@@ -3,6 +3,16 @@
 
 #include <stdint.h>
 
+/* IDT gate type and attribute flags */
+#define IDT_DESC_PRESENT 0x80
+#define IDT_DESC_BIT32   0x08
+#define IDT_DESC_INT_GATE 0x0E
+#define IDT_DESC_RING3   0x60
+#define IDT_DESC_RING0   0x00
+
+#define IDT_DESC_KERNEL_INTERRUPT_GATE (IDT_DESC_PRESENT | IDT_DESC_RING0 | IDT_DESC_INT_GATE)
+#define IDT_DESC_USER_INTERRUPT_GATE   (IDT_DESC_PRESENT | IDT_DESC_RING3 | IDT_DESC_INT_GATE)
+
 struct interrupt_frame;
 typedef void*(*ISR80H_COMMAND)(struct interrupt_frame* frame);
 
