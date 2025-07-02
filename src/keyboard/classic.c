@@ -33,6 +33,7 @@ void classic_keyboard_handle_interrupt();
 
 int classic_keyboard_init()
 {
+    idt_register_interrupt_callback(ISR_KEYBOARD_INTERRUPT, classic_keyboard_handle_interrupt);
     keyboard_set_capslock(&classic_keyboard, KEYBOARD_CAPS_LOCK_OFF);
     outb(PS2_PORT, PS2_COMMAND_ENABLE_FIRST_PORT);
     return 0;
