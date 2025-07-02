@@ -39,6 +39,9 @@ INCLUDES = -I./src -I./src/gdt -I./src/task -I./src/idt -I./src/fs -I./src/fs/fa
 BUILD_DIRS = ./bin ./build/memory/heap ./build/memory/paging ./build/keyboard ./build/disk ./build/fs ./build/fs/fat ./build/task ./build/loader/formats ./build/isr80h
 FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign-loops -fstrength-reduce -fomit-frame-pointer -finline-functions -Wno-unused-function -fno-builtin -Werror -Wno-unused-label -Wno-cpp -Wno-unused-parameter -nostdlib -nostartfiles -nodefaultlibs -Wall -O0 -Iinc -fno-pie -no-pie
 
+# Directory where the FAT image will be mounted
+MOUNT_DIR ?= /mnt/d
+
 dirs:
 	mkdir -p $(BUILD_DIRS)
 
@@ -58,11 +61,11 @@ all: user_programs dirs ./bin/boot.bin ./bin/kernel.bin
 	dd if=./bin/kernel.bin >> ./bin/os.bin
 	dd if=/dev/zero bs=1048576 count=16 >> ./bin/os.bin
 	# Mount the disk image and copy user programs
-	sudo mkdir -p /mnt/d
-	sudo mount -t vfat ./bin/os.bin /mnt/d
-	sudo cp ./programs/blank/blank.elf /mnt/d
-	sudo cp ./programs/shell/shell.elf /mnt/d
-	sudo umount /mnt/d
+	sudo mkdir -p $(MOUNT_DIR)
+	sudo mount -t vfat ./bin/os.bin $(MOUNT_DIR)
+	sudo cp ./programs/blank/blank.elf $(MOUNT_DIR)
+	sudo cp ./programs/shell/shell.elf $(MOUNT_DIR)
+	sudo umount $(MOUNT_DIR)
 
 ./bin/kernel.bin: $(FILES)
 	i686-elf-ld -g -relocatable $(FILES) -o ./build/kernelfull.o
