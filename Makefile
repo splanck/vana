@@ -46,9 +46,9 @@ dirs:
 	mkdir -p $(BUILD_DIRS)
 
 user_programs:
-	cd ./programs/stdlib && $(MAKE) all
-	cd ./programs/blank && $(MAKE) all
-	cd ./programs/shell && $(MAKE) all
+	cd ./programs/stdlib && $(MAKE)
+	cd ./programs/blank && $(MAKE)
+	cd ./programs/shell && $(MAKE)
 
 user_programs_clean:
 	- cd ./programs/stdlib && $(MAKE) clean
