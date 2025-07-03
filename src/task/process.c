@@ -188,7 +188,7 @@ void process_switch_to_any()
     }
 
 
-    panic("No processes to switch too\n");
+    panic("No processes to switch to\n");
 }
 
 static void process_unlink(struct process* process)
