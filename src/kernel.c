@@ -219,6 +219,7 @@ void kernel_main()
 
     // Enable interrupts and jump straight to the shell task
     enable_interrupts();
+    print("Interrupts on.\n");
     task_switch(process->task);
     task_return(&process->task->registers);
 
