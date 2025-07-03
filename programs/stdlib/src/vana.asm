@@ -3,23 +3,36 @@
 section .asm
 
 global print:function
+global vana_sum:function
 global vana_getkey:function
 global vana_malloc:function
 global vana_free:function
 global vana_putchar:function
 global vana_process_load_start:function
-global vana_process_get_arguments:function
 global vana_system:function
 global vana_exit:function
+global vana_process_get_arguments:function
 
 ; void print(const char* filename)
 print:
     push ebp
     mov ebp, esp
     push dword[ebp+8]
-    mov eax, 0 ; Command print
+    mov eax, 1 ; Command print
     int 0x80
     add esp, 4
+    pop ebp
+    ret
+
+; int vana_sum(int a, int b)
+vana_sum:
+    push ebp
+    mov ebp, esp
+    mov eax, 0 ; Command sum
+    push dword[ebp+12] ; b
+    push dword[ebp+8] ; a
+    int 0x80
+    add esp, 8
     pop ebp
     ret
 
@@ -27,7 +40,7 @@ print:
 vana_getkey:
     push ebp
     mov ebp, esp
-    mov eax, 1 ; Command getkey
+    mov eax, 2 ; Command getkey
     int 0x80
     pop ebp
     ret
@@ -36,7 +49,7 @@ vana_getkey:
 vana_putchar:
     push ebp
     mov ebp, esp
-    mov eax, 2 ; Command putchar
+    mov eax, 3 ; Command putchar
     push dword [ebp+8] ; Variable "c"
     int 0x80
     add esp, 4
@@ -47,7 +60,7 @@ vana_putchar:
 vana_malloc:
     push ebp
     mov ebp, esp
-    mov eax, 3 ; Command malloc (Allocates memory for the process)
+    mov eax, 4 ; Command malloc (Allocates memory for the process)
     push dword[ebp+8] ; Variable "size"
     int 0x80
     add esp, 4
@@ -58,7 +71,7 @@ vana_malloc:
 vana_free:
     push ebp
     mov ebp, esp
-    mov eax, 4 ; Command free (Frees the allocated memory for this process)
+    mov eax, 5 ; Command free (Frees the allocated memory for this process)
     push dword[ebp+8] ; Variable "ptr"
     int 0x80
     add esp, 4
@@ -69,7 +82,7 @@ vana_free:
 vana_process_load_start:
     push ebp
     mov ebp, esp
-    mov eax, 5 ; Command process load start
+    mov eax, 6 ; Command process load start
     push dword[ebp+8] ; Variable "filename"
     int 0x80
     add esp, 4

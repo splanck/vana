@@ -3,9 +3,11 @@
 #include "io.h"
 #include "heap.h"
 #include "process.h"
+#include "misc.h"
 
 void isr80h_register_commands()
 {
+    isr80h_register_command(ISR80H_COMMAND0_SUM, isr80h_command0_sum);
     isr80h_register_command(ISR80H_COMMAND1_PRINT, isr80h_command1_print);
     isr80h_register_command(ISR80H_COMMAND2_GETKEY, isr80h_command2_getkey);
     isr80h_register_command(ISR80H_COMMAND3_PUTCHAR, isr80h_command3_putchar);

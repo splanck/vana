@@ -17,6 +17,7 @@ struct process_arguments
 
 void print(const char* filename);
 int vana_getkey();
+int vana_sum(int a, int b);
 
 void* vana_malloc(size_t size);
 void vana_free(void* ptr);
