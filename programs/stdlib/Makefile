@@ -10,11 +10,11 @@ FILES=$(BUILD_DIR)/start.asm.o \
       $(BUILD_DIR)/string.o \
       $(BUILD_DIR)/memory.o
 
-INCLUDES=-I$(SRC_DIR)
+INCLUDES=-I$(SRC_DIR) -I../libc/include
 FLAGS=-g -ffreestanding -fno-builtin -Wall -O0 -nostdlib -nostartfiles -nodefaultlibs
 
 all: $(BUILD_DIR) $(FILES)
-	i686-elf-ld -m elf_i386 -relocatable $(FILES) -o $(BUILD_DIR)/libvana.o
+	i686-elf-ld -m elf_i386 -relocatable $(FILES) ../libc/build/libc.a -o $(BUILD_DIR)/libvana.o
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
