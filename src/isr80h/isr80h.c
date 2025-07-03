@@ -16,7 +16,7 @@ void isr80h_syscall(struct interrupt_frame* context)
     switch (context->eax)
     {
         case VANA_SYS_EXIT:
-            context->eax = (int)isr80h_command9_exit(context);
+            context->eax = isr80h_command9_exit(context);
             break;
         /* handle other VANA_SYS_* calls */
         default:
