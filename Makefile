@@ -27,6 +27,7 @@ FILES = ./build/kernel.asm.o \
        ./build/isr80h/isr80h.o \
        ./build/isr80h/io.o \
        ./build/isr80h/heap.o \
+       ./build/isr80h/misc.o \
        ./build/isr80h/process.o \
        ./build/memory/heap/heap.o \
         ./build/memory/heap/kheap.o \
@@ -162,10 +163,13 @@ all: user_programs dirs ./bin/boot.bin ./bin/kernel.bin
 		i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/io.c -o ./build/isr80h/io.o
 
 ./build/isr80h/heap.o: ./src/isr80h/heap.c
-		i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/heap.c -o ./build/isr80h/heap.o
+		                i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/heap.c -o ./build/isr80h/heap.o
+
+./build/isr80h/misc.o: ./src/isr80h/misc.c
+		i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/misc.c -o ./build/isr80h/misc.o
 
 ./build/isr80h/process.o: ./src/isr80h/process.c
-		i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/process.c -o ./build/isr80h/process.o
+		                i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/process.c -o ./build/isr80h/process.o
 
 clean: user_programs_clean
 	rm -rf ./bin/boot.bin
