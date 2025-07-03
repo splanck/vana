@@ -9,7 +9,7 @@ _start:
     nop
 
 ; FAT16 Header
-OEMIdentifier           db 'VANA    '
+OEMIdentifier           db 'VANAOS  '
 BytesPerSector          dw 0x200
 SectorsPerCluster       db 0x80
 ReservedSectors         dw 200
