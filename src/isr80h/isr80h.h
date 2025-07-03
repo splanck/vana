@@ -1,6 +1,8 @@
 #ifndef ISR80H_H
 #define ISR80H_H
 
+struct interrupt_frame;
+
 enum ISR80H_COMMANDS
 {
     ISR80H_COMMAND0_SUM = 0,
@@ -16,5 +18,6 @@ enum ISR80H_COMMANDS
 };
 
 void isr80h_register_commands();
+void isr80h_syscall(struct interrupt_frame* context);
 
 #endif
