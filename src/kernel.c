@@ -124,6 +124,31 @@ void kernel_page()
     paging_switch(kernel_chunk);
 }
 
+void inject_process_args()
+{
+    struct process* process = 0;
+    int res = process_load_switch("0:/blank.elf", &process);
+    if (res != VANA_ALL_OK)
+    {
+        panic("Failed to load blank.elf\n");
+    }
+
+    struct command_argument argument;
+    strcpy(argument.argument, "Testing!");
+    argument.next = 0x00;
+    process_inject_arguments(process, &argument);
+
+    res = process_load_switch("0:/blank.elf", &process);
+    if (res != VANA_ALL_OK)
+    {
+        panic("Failed to load blank.elf\n");
+    }
+
+    strcpy(argument.argument, "Abc!");
+    argument.next = 0x00;
+    process_inject_arguments(process, &argument);
+}
+
 void kernel_main()
 {
     terminal_initialize();
@@ -174,16 +199,8 @@ void kernel_main()
     enable_paging();
     print("Paging enabled.\n");
 
-
-    struct process* process = 0;
-    int res = process_load_switch("0:/blank.elf", &process);
-    if (res != VANA_ALL_OK)
-    {
-        panic("Failed to load blank.elf\n");
-    }
-
-    // inject_test_arguments(process);
-
+    // inject_process_args();
+    
     task_run_first_ever_task();
 
     // Unmask timer (IRQ0) and keyboard (IRQ1) lines now that handlers exist
