@@ -1,0 +1,92 @@
+Vana Kernel Source Overview
+===========================
+
+Boot Sequence
+-------------
+* `src/boot/boot.asm` forms a 16-bit boot sector that sets up a minimal GDT and
+  switches the CPU to protected mode. It enables the A20 line and loads the
+  kernel using ATA PIO reads (`ata_lba_read`) before jumping to the 32-bit
+  entry point.
+
+Kernel Initialization
+---------------------
+* `src/kernel.c` initializes the VGA text terminal, disables interrupts and sets
+  up core subsystems:
+  * Global Descriptor Table and Task State Segment (`gdt_real` / `tss`) via
+    `gdt_load()` and `tss_load()`.
+  * Kernel heap with `kheap_init()`.
+  * Interrupt Descriptor Table via `idt_init()` and
+    syscall registration through `isr80h_register_commands()`.
+  * Disk and filesystem drivers (`disk_search_and_init()` and `fs_init()`).
+  * Keyboard driver (`keyboard_init()`).
+  * Paging using a 4GB identity-mapped chunk (`paging_new_4gb` and
+    `enable_paging`).
+* After initialization the kernel loads `shell.elf` using `process_load_switch`
+  and immediately begins multitasking with `task_run_first_ever_task()`.
+
+Memory Management
+-----------------
+* `src/memory/` provides basic `memset`, `memcpy` and `memcmp` utilities.
+* The kernel heap (`kheap.c`) creates a block-based allocator with 4096 byte
+  blocks using the structures defined in `heap.c`.
+* Paging support (`paging.c` and `paging.asm`) allocates page tables,
+  switches directories, and maps/unmaps ranges of pages. Every task has its own
+  page directory (`task->page_directory`).
+
+Task and Process Management
+---------------------------
+* Structures and functions in `src/task/` implement processes and tasks.
+  * `task.c` maintains a linked list of tasks and performs context switches
+    (`task_switch`, `task_next`).
+  * `process.c` manages ELF program loading, argument injection and per‑process
+    allocations.
+  * The first user task is the shell launched from the filesystem.
+* `tss.h` and `tss.asm` configure a Task State Segment so privilege level
+  switches can use a dedicated kernel stack.
+
+Interrupts and Syscalls
+-----------------------
+* `src/idt/idt.*` sets up a 256-entry Interrupt Descriptor Table. Default
+  exception handlers terminate the current process and schedule the next task.
+* System calls use interrupt 0x80. `src/isr80h/` defines command handlers for
+  printing, keyboard input, dynamic memory management, process control and more.
+  These are registered via `isr80h_register_commands()`.
+
+Drivers and Filesystem Support
+------------------------------
+* `src/disk/` implements a simple ATA disk driver and a sector streamer utility.
+* `src/fs/` provides a filesystem abstraction and FAT16 implementation. Path
+  parsing utilities (`pparser.c`) allow locating files on disk.
+* `src/keyboard/` includes a classic PS/2 keyboard driver that translates
+  scancodes, handles shift/capslock states and buffers input characters.
+* The Programmable Interrupt Controller driver (`src/pic/`) sends EOI commands
+  after hardware interrupts.
+
+Executable Loading
+------------------
+* ELF parsing routines in `src/loader/formats/` load user programs. Functions
+  such as `elf_load` read program headers, determine virtual/physical ranges and
+  validate the ELF header before creating a `process` structure.
+
+User Programs and Libraries
+---------------------------
+* Under `programs/` reside example user programs: a simple `blank` program and a
+  basic shell. They link against `programs/stdlib`, which provides a small C
+  library and wrappers around system calls (e.g. `vana_malloc`, `vana_system`).
+* The shell reads input via `vana_terminal_readline` and launches other
+  executables through `vana_system_run`.
+
+Build System
+------------
+* The top-level `Makefile` builds the kernel using `i686-elf-gcc` and assembles
+  boot and assembly files with `nasm`. It also compiles user programs and
+  constructs a FAT16 disk image containing `boot.bin`, `kernel.bin` and the
+  user-space binaries.
+* `make run` launches the OS in QEMU using the produced disk image.
+
+Overall Capabilities
+--------------------
+Vana boots into protected mode, sets up paging and basic drivers, mounts a
+FAT16 filesystem and launches a shell as the first user process. It provides a
+rudimentary multitasking environment with system call support, allowing user
+programs to perform I/O, allocate memory and spawn new processes.
