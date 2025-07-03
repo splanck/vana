@@ -208,18 +208,18 @@ void kernel_main()
         panic("Failed to load shell.elf\n");
     }
 
+    // Unmask timer (IRQ0) and keyboard (IRQ1) lines now that handlers exist
+    outb(0x21, 0xFC);   // enable IRQ0 and IRQ1 only
+    outb(0xA1, 0xFF);   // keep all slave PIC IRQs masked
+
+    // Enable interrupts right before jumping to the first task
+    enable_interrupts();
+
     // The call below should never return as it switches to the first task
     task_run_first_ever_task();
 
     // Code below would normally run after the first task starts, but the task
     // switch should not return. Leaving it here for reference only.
-    //
-    // Unmask timer (IRQ0) and keyboard (IRQ1) lines now that handlers exist
-    // outb(0x21, 0xFC);   // enable IRQ0 and IRQ1 only
-    // outb(0xA1, 0xFF);   // keep all slave PIC IRQs masked
-
-    // enable_interrupts();
-    // print("Interrupts on.\n");
 
     // disable_interrupts();
     // for (;;) {
