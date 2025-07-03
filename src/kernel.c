@@ -20,7 +20,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-static struct paging_4gb_chunk* kernel_chunk = 0;
+struct paging_4gb_chunk* kernel_chunk = 0;
 
 uint16_t* video_mem = 0;
 uint16_t terminal_row = 0;

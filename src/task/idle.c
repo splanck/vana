@@ -6,7 +6,6 @@
 #include "memory/memory.h"
 #include <stdint.h>
 
-extern struct paging_4gb_chunk* kernel_chunk;
 extern struct task* current_task;
 extern struct task* task_head;
 extern struct task* task_tail;

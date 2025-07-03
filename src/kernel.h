@@ -4,6 +4,9 @@
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 20
 
+#include "memory/paging/paging.h"
+
+extern struct paging_4gb_chunk* kernel_chunk;
 
 void kernel_main();
 void print(const char* str);
