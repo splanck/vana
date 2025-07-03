@@ -4,7 +4,7 @@
 #include "vana.h"
 int main(int argc, char** argv)
 {
-    print("VanaOS v1.0.0\n");
+    print("Vana v1.0.0\n");
     while(1) 
     {
         print("> ");
