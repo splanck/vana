@@ -533,7 +533,7 @@ int process_load_for_slot(const char* filename, struct process** process, int pr
 
     // Create a task
     _process->task = task_new(_process);
-    if (ERROR_I(_process->task) == 0)
+    if (ISERR(_process->task))
     {
         res = ERROR_I(_process->task);
 
