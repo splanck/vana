@@ -66,7 +66,11 @@ all: user_programs dirs ./bin/boot.bin ./bin/kernel.bin
 	sudo mkdir -p $(MOUNT_DIR)
 	sudo mount -t vfat ./bin/os.bin $(MOUNT_DIR)
 	sudo cp ./programs/blank/blank.elf $(MOUNT_DIR)
-	sudo cp ./programs/shell/shell.elf $(MOUNT_DIR)
+	if [ -f ./programs/shell/shell.elf ]; then \
+	sudo cp ./programs/shell/shell.elf $(MOUNT_DIR); \
+	else \
+	echo "Warning: shell.elf not found, skipping copy"; \
+	fi
 	sudo umount $(MOUNT_DIR)
 
 ./bin/kernel.bin: $(FILES)
