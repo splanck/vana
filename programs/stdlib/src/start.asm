@@ -8,5 +8,7 @@ section .asm
 
 _start:
     call c_start
+    push eax
     call vana_exit
+    add esp, 4
     ret
