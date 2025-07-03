@@ -3,7 +3,7 @@ STRING_SRC=$(wildcard string/*.c)
 HEAP_SRC=$(wildcard heap/*.c)
 OBJS=$(patsubst string/%.c,$(BUILD_DIR)/%.o,$(STRING_SRC)) \
      $(patsubst heap/%.c,$(BUILD_DIR)/%.o,$(HEAP_SRC))
-INCLUDES=-I./include
+INCLUDES = -I./include -I../../src/include
 CFLAGS=-g -ffreestanding -fno-builtin -Wall -O0 -nostdlib
 
 all: $(BUILD_DIR) $(BUILD_DIR)/libc.a
