@@ -52,13 +52,52 @@ uint8_t classic_keyboard_scancode_to_char(uint8_t scancode)
     }
 
     char c = keyboard_scan_set_one[scancode];
-    if (keyboard_get_capslock(&classic_keyboard) == KEYBOARD_CAPS_LOCK_OFF)
+
+    if (keyboard_get_shift(&classic_keyboard))
     {
-        if (c >= 'A' && c <= 'Z')
+        switch (c)
+        {
+        case '1': c = '!'; break;
+        case '2': c = '@'; break;
+        case '3': c = '#'; break;
+        case '4': c = '$'; break;
+        case '5': c = '%'; break;
+        case '6': c = '^'; break;
+        case '7': c = '&'; break;
+        case '8': c = '*'; break;
+        case '9': c = '('; break;
+        case '0': c = ')'; break;
+        case '-': c = '_'; break;
+        case '=': c = '+'; break;
+        case '[': c = '{'; break;
+        case ']': c = '}'; break;
+        case ';': c = ':'; break;
+        case '\'': c = '"'; break;
+        case '`': c = '~'; break;
+        case '\\': c = '|'; break;
+        case ',': c = '<'; break;
+        case '.': c = '>'; break;
+        case '/': c = '?'; break;
+        default: break;
+        }
+    }
+
+    int uppercase = keyboard_get_capslock(&classic_keyboard) ^ keyboard_get_shift(&classic_keyboard);
+    if (c >= 'A' && c <= 'Z')
+    {
+        if (!uppercase)
         {
             c += 32;
         }
     }
+    else if (c >= 'a' && c <= 'z')
+    {
+        if (uppercase)
+        {
+            c -= 32;
+        }
+    }
+
     return c;
 }
 
