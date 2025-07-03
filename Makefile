@@ -47,6 +47,7 @@ dirs:
 	mkdir -p $(BUILD_DIRS)
 
 user_programs:
+	cd ./programs/libc && $(MAKE)
 	cd ./programs/stdlib && $(MAKE)
 	cd ./programs/blank && $(MAKE)
 	cd ./programs/shell && $(MAKE)
