@@ -199,19 +199,30 @@ void kernel_main()
     enable_paging();
     print("Paging enabled.\n");
 
-    // inject_process_args();
-    
+
+    // Load and execute the shell as the very first user task
+    struct process* process = 0;
+    int res = process_load_switch("0:/shell.elf", &process);
+    if (res != VANA_ALL_OK)
+    {
+        panic("Failed to load shell.elf\n");
+    }
+
+    // The call below should never return as it switches to the first task
     task_run_first_ever_task();
 
+    // Code below would normally run after the first task starts, but the task
+    // switch should not return. Leaving it here for reference only.
+    //
     // Unmask timer (IRQ0) and keyboard (IRQ1) lines now that handlers exist
-    outb(0x21, 0xFC);   // enable IRQ0 and IRQ1 only
-    outb(0xA1, 0xFF);   // keep all slave PIC IRQs masked
+    // outb(0x21, 0xFC);   // enable IRQ0 and IRQ1 only
+    // outb(0xA1, 0xFF);   // keep all slave PIC IRQs masked
 
-    enable_interrupts();
-    print("Interrupts on.\n");
+    // enable_interrupts();
+    // print("Interrupts on.\n");
 
-    disable_interrupts();
-    for (;;) {
-        asm volatile("hlt");
-    }
+    // disable_interrupts();
+    // for (;;) {
+    //     asm volatile("hlt");
+    // }
 }
