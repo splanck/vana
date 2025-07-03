@@ -9,6 +9,7 @@
 #include "memory/paging/paging.h"
 #include "loader/formats/elfloader.h"
 #include "kernel.h"
+#include "task/idle.h"
 
 // The current process that is running
 struct process* current_process = 0;
@@ -187,8 +188,8 @@ void process_switch_to_any()
         }
     }
 
-
-    panic("No processes to switch to\n");
+    // No user processes remain, switch to the idle process
+    process_switch(idle_process_get());
 }
 
 static void process_unlink(struct process* process)

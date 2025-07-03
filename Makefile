@@ -5,6 +5,7 @@ KEYBOARD_OBJS = ./build/keyboard/keyboard.o \
                 ./build/keyboard/classic.o
 TASK_OBJS = ./build/task/task.o \
             ./build/task/process.o \
+            ./build/task/idle.o \
             ./build/task/task.asm.o
 LOADER_OBJS = ./build/loader/formats/elf.o \
               ./build/loader/formats/elfloader.o
@@ -106,6 +107,9 @@ all: user_programs dirs ./bin/boot.bin ./bin/kernel.bin
 
 ./build/task/process.o: ./src/task/process.c
 	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/task/process.c -o ./build/task/process.o
+
+./build/task/idle.o: ./src/task/idle.c
+	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/task/idle.c -o ./build/task/idle.o
 
 ./build/task/task.asm.o: ./src/task/task.asm
 	nasm -f elf -g ./src/task/task.asm -o ./build/task/task.asm.o

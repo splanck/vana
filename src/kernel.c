@@ -16,6 +16,7 @@
 #include "fs/file.h"
 #include "status.h"
 #include "io/io.h"
+#include "task/idle.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -199,8 +200,11 @@ void kernel_main()
     enable_paging();
     print("Paging enabled.\n");
 
+    // Initialize the idle task before loading any user programs
+    idle_task_init();
 
-    // Load and execute the shell as the very first user task
+
+    // Load and execute the shell as the first user task
     struct process* process = 0;
     int res = process_load_switch("0:/shell.elf", &process);
     if (res != VANA_ALL_OK)
@@ -213,11 +217,10 @@ void kernel_main()
     outb(0x21, 0xFC);   // enable IRQ0 and IRQ1 only
     outb(0xA1, 0xFF);   // keep all slave PIC IRQs masked
 
-    // Enable interrupts right before jumping to the first task
+    // Enable interrupts and jump straight to the shell task
     enable_interrupts();
-
-    // The call below should never return as it switches to the first task
-    task_run_first_ever_task();
+    task_switch(process->task);
+    task_return(&process->task->registers);
 
     // Code below would normally run after the first task starts, but the task
     // switch should not return. Leaving it here for reference only.
