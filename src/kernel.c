@@ -207,6 +207,7 @@ void kernel_main()
     {
         panic("Failed to load shell.elf\n");
     }
+    print("Shell loaded.\n");
 
     // Unmask timer (IRQ0) and keyboard (IRQ1) lines now that handlers exist
     outb(0x21, 0xFC);   // enable IRQ0 and IRQ1 only
