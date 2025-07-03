@@ -21,7 +21,7 @@ static void idle_loop()
     }
 }
 
-int idle_task_init()
+void idle_task_init()
 {
     memset(&idle_process_struct, 0, sizeof(idle_process_struct));
     memset(&idle_task_struct, 0, sizeof(idle_task_struct));
@@ -51,7 +51,6 @@ int idle_task_init()
     // Make idle the current process by default
     process_switch(&idle_process_struct);
 
-    return 0;
 }
 
 struct task* idle_task_get()
