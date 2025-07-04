@@ -29,3 +29,12 @@ Files are stored as chains of clusters. `fat16_cluster_to_sector()` converts a c
 `fat16_read()` wraps this helper to implement the `read` callback used by `fread()`. The companion functions `fat16_seek()`, `fat16_stat()` and `fat16_close()` manipulate a `struct fat_file_descriptor` which stores the current offset and a pointer to the `fat_item` representing the file. Each call updates this structure so subsequent operations continue from the correct location.
 
 Together these pieces allow the kernel to parse paths, traverse directories and read file contents from a FAT16 formatted disk.
+
+## Example usage
+```c
+int fd = fopen("0:/README.TXT", "r");
+char buf[128];
+int bytes = fread(buf, 1, sizeof(buf), fd);
+fclose(fd);
+```
+`fopen()` resolves the path using the parser, `fread()` follows the FAT chain for the file and fills `buf`; `fclose()` releases the descriptor when finished.

@@ -23,6 +23,10 @@ The selectors used throughout the kernel are also defined here:
 correspond to the first two kernel segments, while `GDT_TSS_SELECTOR`
 (0x28) is reserved for the TSS descriptor.
 
+`src/config.h` defines convenience aliases `KERNEL_CODE_SELECTOR` and
+`KERNEL_DATA_SELECTOR` which simply map to the GDT values above so other
+subsystems can include a single header when referencing segment selectors.
+
 ## Encoding descriptors
 
 `gdt_structured_to_gdt()` in `gdt.c` converts an array of

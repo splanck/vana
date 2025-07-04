@@ -1,9 +1,11 @@
 # System Calls (`isr80h`)
 
 This kernel exposes a small system call interface on interrupt `0x80`. User
-programs trigger the interrupt with a command number in `eax` and arguments on
-the stack. The dispatcher is implemented in `src/idt/idt.c` and individual
-commands live under `src/isr80h/`.
+programs load a command number into `eax`, push any arguments and execute
+`int $0x80`. The assembly stub `isr80h_wrapper` builds an
+`interrupt_frame` and forwards control to `isr80h_handler` inside the kernel.
+The dispatcher resides in `src/idt/idt.c` while individual commands live under
+`src/isr80h/`.
 
 ## Command registration (`isr80h.c`)
 

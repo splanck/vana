@@ -12,10 +12,12 @@ sector size (normally `VANA_SECTOR_SIZE` which is 512 bytes), an ID used when
 communicating with the controller and pointers to the filesystem implementation
 and any private data it requires.
 
-During boot `disk_search_and_init()` in `disk.c` initialises this global
-structure and attempts to resolve the filesystem with `fs_resolve()`. The
+During boot `disk_search_and_init()` in `disk.c` clears the global `disk`
+instance, fills in the sector size and type and then calls `fs_resolve()` to
+detect a filesystem.  In practice this resolves to the FAT16 driver which
+initialises private structures for reading the partition.  The
 function `disk_get()` simply returns a pointer to this structure when index 0 is
-requested.
+requested so the rest of the kernel can open files through the filesystem layer.
 
 ## LBA Reads
 

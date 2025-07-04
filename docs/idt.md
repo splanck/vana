@@ -17,7 +17,7 @@ invokes `lidt` with a pointer to an `idtr_desc` structure.  A macro named
 current stack pointer and interrupt number, and then call the common
 `interrupt_handler` in C.  A jump table labelled `interrupt_pointer_table`
 contains pointers to all these stubs so the C code can easily install them into
-the IDT.  Finally, `isr80h_wrapper` builds a minimal interrupt frame, calls the
+the IDT.  Finally, `isr80h_wrapper` builds a minimal `interrupt_frame`, calls the
 C routine `isr80h_handler` and returns the value produced by that routine.  This
 wrapper is used for the `0x80` system‑call vector.
 
@@ -28,8 +28,9 @@ wrapper is used for the `0x80` system‑call vector.
 `interrupt_pointer_table` with the kernel gate attributes.  The special vector
 `0x80` is associated with `isr80h_wrapper` so that user programs can invoke
 system calls.  After loading the table, early exceptions (vectors 0–31) and
-several spurious IRQ lines register a default callback that simply acknowledges
-the interrupt.
+the spurious IRQs 7, 14 and 15 (vectors `0x27`, `0x2E` and `0x2F`) register a
+default callback named `interrupt_ignore` that simply acknowledges the
+interrupt.
 
 When an interrupt fires the assembly stub ends up in `interrupt_handler`.
 This routine looks up a function pointer in the `interrupt_callbacks` array and
@@ -48,7 +49,9 @@ caller.
 
 `idt.h` defines the `idt_desc` and `idtr_desc` structures required by the
 hardware as well as the `interrupt_frame` layout pushed by the assembly
-wrappers.  It also exposes helper functions such as `enable_interrupts`,
+wrappers.  This structure mirrors the registers saved by the stubs so C
+callbacks can inspect user state.  The header also exposes helper functions
+such as `enable_interrupts`,
 `disable_interrupts`, `isr80h_handler` and `idt_register_interrupt_callback` so
 other subsystems (for example the keyboard driver) can hook their own handlers.
 
