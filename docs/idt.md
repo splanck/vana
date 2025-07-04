@@ -1,5 +1,21 @@
 # Interrupt Descriptor Table (IDT)
 
+The IDT is the CPU data structure that routes every interrupt and exception to
+its handler.  Each entry is eight bytes long, containing the handler's address
+split into two 16‑bit fields plus type and privilege bits.  When the processor
+raises an interrupt it uses the index in the table to locate the descriptor and
+jumps to the specified handler code.
+
+At boot the kernel remaps the Programmable Interrupt Controller so hardware IRQs
+start at vector `0x20`, leaving vectors `0x00`–`0x1F` for CPU exceptions.  Some
+IRQs can fire spuriously; IRQ7, IRQ14 and IRQ15 are treated this way and their
+handlers merely send an end‑of‑interrupt without further processing.
+
+User programs issue system calls via vector `0x80`.  The descriptor for this
+vector points to `isr80h_wrapper`, which builds a minimal `interrupt_frame` and
+invokes the C dispatcher.  The handler runs the requested command in kernel mode
+and places the return value in `eax` before returning to user space.
+
 This kernel uses the x86 Interrupt Descriptor Table (IDT) to dispatch both
 hardware interrupts and software requests.  The IDT setup is split across three
 files:
