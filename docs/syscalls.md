@@ -1,18 +1,27 @@
 # System Calls (`isr80h`)
 
-This kernel exposes a small system call interface on interrupt `0x80`. User
-programs load a command number into `eax`, push any arguments and execute
-`int $0x80`. The assembly stub `isr80h_wrapper` builds an
-`interrupt_frame` and forwards control to `isr80h_handler` inside the kernel.
-The dispatcher resides in `src/idt/idt.c` while individual commands live under
-`src/isr80h/`.
+The kernel exposes all user services through interrupt `0x80`, commonly known
+as the **isr80h** interface.  Each request is identified by a numeric command
+defined in `enum ISR80H_COMMANDS`.  The interface is intentionally small and
+relies only on general registers and the stack for passing arguments.
+
+User programs trigger a system call by placing the desired command number in
+`eax`, pushing any arguments onto the stack and executing `int $0x80`.  The
+assembly wrapper `isr80h_wrapper` located in `src/idt/idt.asm` saves registers,
+constructs an `interrupt_frame` and hands execution to the C dispatcher.
+
+Inside the kernel `isr80h_handler` (implemented in `src/idt/idt.c`) switches to
+the kernel page tables, saves the current task state and invokes the function
+associated with the command.  Once the handler returns, `isr80h_wrapper` places
+its result back into `eax` before returning to user mode.
 
 ## Command registration (`isr80h.c`)
 
 `enum ISR80H_COMMANDS` in `isr80h.h` assigns numeric ids to each command. During
-kernel start‑up `isr80h_register_commands()` registers handlers for every id by
-calling `isr80h_register_command`. The function resides in `src/isr80h/isr80h.c`
-and simply ties each id to one of the handlers described below.
+boot `kernel.c` calls `isr80h_register_commands()` which registers every handler
+with `isr80h_register_command`.  To add a new system call, extend the
+enumeration, implement a handler matching the `ISR80H_COMMAND` prototype and
+register it within `isr80h_register_commands()`.
 
 ## Available commands
 
