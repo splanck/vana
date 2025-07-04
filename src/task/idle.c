@@ -6,6 +6,7 @@
 #include "memory/memory.h"
 #include <stdint.h>
 
+extern struct paging_4gb_chunk* kernel_chunk;
 extern struct task* current_task;
 extern struct task* task_head;
 extern struct task* task_tail;
@@ -21,7 +22,7 @@ static void idle_loop()
     }
 }
 
-void idle_task_init()
+int idle_task_init()
 {
     memset(&idle_process_struct, 0, sizeof(idle_process_struct));
     memset(&idle_task_struct, 0, sizeof(idle_task_struct));
@@ -51,6 +52,7 @@ void idle_task_init()
     // Make idle the current process by default
     process_switch(&idle_process_struct);
 
+    return 0;
 }
 
 struct task* idle_task_get()
