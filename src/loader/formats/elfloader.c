@@ -37,21 +37,25 @@ static bool elf_has_program_header(struct elf_header* header)
     return header->e_phoff != 0;
 }
 
+/* Return the pointer to the raw ELF file loaded in memory. */
 void* elf_memory(struct elf_file* file)
 {
     return file->elf_memory;
 }
 
+/* Obtain the main ELF header structure for the loaded file. */
 struct elf_header* elf_header(struct elf_file* file)
 {
     return file->elf_memory;
 }
 
+/* Get the first section header entry from an ELF header. */
 struct elf32_shdr* elf_sheader(struct elf_header* header)
 {
     return (struct elf32_shdr*)((int)header+header->e_shoff);
 }
 
+/* Fetch the first program header or NULL if none exists. */
 struct elf32_phdr* elf_pheader(struct elf_header* header)
 {
     if(header->e_phoff == 0)
@@ -62,41 +66,52 @@ struct elf32_phdr* elf_pheader(struct elf_header* header)
     return (struct elf32_phdr*)((int)header + header->e_phoff);
 }
 
+/* Access the program header at a specific index. */
 struct elf32_phdr* elf_program_header(struct elf_header* header, int index)
 {
     return &elf_pheader(header)[index];
 }
 
+/* Access the section header at a specific index. */
 struct elf32_shdr* elf_section(struct elf_header* header, int index)
 {
     return &elf_sheader(header)[index];
 }
 
+/* Translate a program header offset to a physical address. */
 void* elf_phdr_phys_address(struct elf_file* file, struct elf32_phdr* phdr)
 {
     return elf_memory(file)+phdr->p_offset;
 }
 
+/*
+ * Return a pointer to the section header string table containing
+ * the names of all sections.
+ */
 char* elf_str_table(struct elf_header* header)
 {
     return (char*) header + elf_section(header, header->e_shstrndx)->sh_offset;
 }
 
+/* Virtual address at which the ELF image is mapped. */
 void* elf_virtual_base(struct elf_file* file)
 {
     return file->virtual_base_address;
 }
 
+/* Last virtual address occupied by the ELF mapping. */
 void* elf_virtual_end(struct elf_file* file)
 {
     return file->virtual_end_address;
 }
 
+/* Physical start of the loaded ELF image. */
 void* elf_phys_base(struct elf_file* file)
 {
     return file->physical_base_address;
 }
 
+/* Physical end address of the ELF allocation. */
 void* elf_phys_end(struct elf_file* file)
 {
     return file->physical_end_address;
