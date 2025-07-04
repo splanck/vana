@@ -188,6 +188,7 @@ out:
     return res;
 }
 
+// Release the memory associated with an ELF file structure.
 void elf_file_free(struct elf_file* elf_file)
 {
     if (elf_file->elf_memory)
@@ -198,11 +199,14 @@ void elf_file_free(struct elf_file* elf_file)
     kfree(elf_file);
 }
 
+// Allocate a new ELF file structure with all fields zeroed.
 struct elf_file* elf_file_new()
 {
     return (struct elf_file*)kzalloc(sizeof(struct elf_file));
 }
 
+// Load an ELF executable from disk into memory and validate its headers.
+// On success `*file_out` receives the allocated `struct elf_file` instance.
 int elf_load(const char* filename, struct elf_file** file_out)
 {
     struct elf_file* elf_file = elf_file_new();
