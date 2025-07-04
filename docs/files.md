@@ -1,6 +1,11 @@
 # Source File Overview
 
-The following tables summarize all C and assembly sources under the `src/` tree. Each entry gives a short description of what the file implements.
+This document acts as a guide to the kernel's source tree.  It lists every
+C and assembly file under `src/` so newcomers can quickly locate the code
+responsible for a particular subsystem or feature.
+
+Having a short explanation next to each filename makes navigating the project
+easier when exploring the implementation or adding new functionality.
 
 The list below was verified against `find src -name '*.c' -or -name '*.asm'`
 and currently covers all 33 source files.
