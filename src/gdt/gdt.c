@@ -1,3 +1,12 @@
+/*
+ * gdt.c - encode and install Global Descriptor Table entries
+ *
+ * The kernel describes segments using struct gdt_structured.
+ * encode_gdt_entry converts each structured entry into the packed
+ * 8-byte format required by the CPU, setting limit granularity and
+ * base fields. gdt_structured_to_gdt iterates over an array of
+ * structured entries and produces the final table ready for gdt_load.
+ */
 #include "gdt.h"
 #include "kernel.h"
 
@@ -26,6 +35,12 @@ static void encode_gdt_entry(uint8_t* target, struct gdt_structured source)
 
     target[5] = source.type;
 }
+/**
+ * Convert an array of structured descriptors into packed GDT entries.
+ * @param gdt             Output array of raw descriptors.
+ * @param structured_gdt  Input array describing each segment.
+ * @param total_entries   Number of entries in the array.
+ */
 
 void gdt_structured_to_gdt(struct gdt* gdt, struct gdt_structured* structured_gdt, int total_entries)
 {

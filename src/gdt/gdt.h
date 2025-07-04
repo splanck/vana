@@ -30,7 +30,14 @@ struct gdt_descriptor
     uint32_t address;
 } __attribute__((packed));
 
+/**
+ * Load the Global Descriptor Table described by `descriptor`.
+ * Reloads all segment registers to make the new table active.
+ */
 void gdt_load(struct gdt_descriptor* descriptor);
+/**
+ * Encode an array of `struct gdt_structured` into raw descriptors.
+ */
 void gdt_structured_to_gdt(struct gdt* gdt, struct gdt_structured* structured_gdt, int total_entries);
 
 #endif
