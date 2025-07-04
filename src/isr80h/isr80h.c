@@ -1,3 +1,10 @@
+/*
+ * System call registration for interrupt 0x80.
+ * isr80h_register_commands() populates the global command table
+ * (isr80h_commands in idt.c) with handler functions.
+ * The table holds VANA_MAX_ISR80H_COMMANDS entries indexed by
+ * the enumeration in isr80h.h.
+ */
 #include "isr80h.h"
 #include "idt/idt.h"
 #include "io.h"
