@@ -6,6 +6,19 @@
 #include "config.h"
 #include "kernel.h"
 
+/*
+ * System call handlers for process management.
+ *
+ *  - Command 6 loads a user program and switches to it.
+ *  - Command 7 invokes a program with arguments provided by the caller.
+ *  - Command 8 returns argc/argv information for the current process.
+ *  - Command 9 terminates the running process.
+ */
+
+/*
+ * Load a program specified by the user and switch execution to it.
+ * The filename pointer is taken from the user stack.
+ */
 void* isr80h_command6_process_load_start(struct interrupt_frame* frame)
 {
     (void)frame;
@@ -34,6 +47,10 @@ void* isr80h_command6_process_load_start(struct interrupt_frame* frame)
     return 0;
 }
 
+/*
+ * Spawn a new process using a command line provided by the caller.
+ * The command argument structure pointer is taken from the user stack.
+ */
 void* isr80h_command7_invoke_system_command(struct interrupt_frame* frame)
 {
     struct command_argument* arguments = task_virtual_address_to_physical(task_current(), task_get_stack_item(task_current(), 0));
@@ -68,6 +85,10 @@ void* isr80h_command7_invoke_system_command(struct interrupt_frame* frame)
     return 0;
 }
 
+/*
+ * Copy the argument vector for the current process to user space.
+ * The destination structure pointer is taken from the user stack.
+ */
 void* isr80h_command8_get_program_arguments(struct interrupt_frame* frame)
 {
     struct process* process = task_current()->process;
@@ -77,6 +98,9 @@ void* isr80h_command8_get_program_arguments(struct interrupt_frame* frame)
     return 0;
 }
 
+/*
+ * Terminate the current process and schedule the next runnable task.
+ */
 void* isr80h_command9_exit(struct interrupt_frame* frame)
 {
     struct process* process = task_current()->process;
