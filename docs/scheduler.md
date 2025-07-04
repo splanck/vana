@@ -3,6 +3,23 @@
 This document outlines how the cooperative scheduler in `src/task/` creates
 new tasks, performs context switches and manages processes.
 
+When a user program is loaded the scheduler creates a new task using
+`task_new`. This routine allocates a `struct task`, prepares the initial CPU
+context and links it to the process that owns it. Once initialised, the task is
+appended to the run queue so the scheduler can eventually run it.
+
+Tasks are organised into a circular doubly linked list headed by `task_head`.
+The `current_task` pointer always references the running task and the scheduler
+traverses the list in order whenever a task yields. Because the system is
+cooperative, each task must return to the kernel for the next entry to be
+chosen.
+
+Switching is performed by `task_switch`, which saves the current state,
+updates `current_task` and loads the next task's page directory before jumping
+to the assembly helper `task_return`. The very first user task is launched by
+`task_run_first_ever_task`, and subsequent calls to `task_next` continue in
+round-robin fashion so every task receives CPU time.
+
 ## Task creation (`task.c/h`)
 
 The `struct task` structure records the CPU state and memory mapping of a
