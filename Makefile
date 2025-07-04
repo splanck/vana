@@ -1,42 +1,42 @@
 DISK_OBJS = ./build/disk/disk.o \
-            ./build/disk/streamer.o
+	     ./build/disk/streamer.o
 
 KEYBOARD_OBJS = ./build/keyboard/keyboard.o \
-                ./build/keyboard/classic.o
+	         ./build/keyboard/classic.o
 TASK_OBJS = ./build/task/task.o \
-            ./build/task/process.o \
-            ./build/task/idle.o \
-            ./build/task/task.asm.o
+	     ./build/task/process.o \
+	     ./build/task/idle.o \
+	     ./build/task/task.asm.o
 LOADER_OBJS = ./build/loader/formats/elf.o \
-              ./build/loader/formats/elfloader.o
+	       ./build/loader/formats/elfloader.o
 
 FILES = ./build/kernel.asm.o \
-        ./build/kernel.o \
-        ./build/gdt.o \
-        ./build/gdt.asm.o \
-        ./build/tss.asm.o \
-        ./build/idt.o \
-        ./build/idt.asm.o \
-        ./build/memory.o \
-        ./build/string.o \
-        ./build/pic.o \
-        ./build/io.o \
-        $(DISK_OBJS) \
-        $(KEYBOARD_OBJS) \
-        $(TASK_OBJS) \
-       $(LOADER_OBJS) \
-       ./build/isr80h/isr80h.o \
-       ./build/isr80h/io.o \
-       ./build/isr80h/heap.o \
-       ./build/isr80h/misc.o \
-       ./build/isr80h/process.o \
-       ./build/memory/heap/heap.o \
-        ./build/memory/heap/kheap.o \
-        ./build/memory/paging/paging.o \
-        ./build/memory/paging/paging.asm.o \
-        ./build/fs/file.o \
-        ./build/fs/pparser.o \
-        ./build/fs/fat/fat16.o
+	 ./build/kernel.o \
+	 ./build/gdt.o \
+	 ./build/gdt.asm.o \
+	 ./build/tss.asm.o \
+	 ./build/idt.o \
+	 ./build/idt.asm.o \
+	 ./build/memory.o \
+	 ./build/string.o \
+	 ./build/pic.o \
+	 ./build/io.o \
+	 $(DISK_OBJS) \
+	 $(KEYBOARD_OBJS) \
+	 $(TASK_OBJS) \
+	$(LOADER_OBJS) \
+	./build/isr80h/isr80h.o \
+	./build/isr80h/io.o \
+	./build/isr80h/heap.o \
+	./build/isr80h/misc.o \
+	./build/isr80h/process.o \
+	./build/memory/heap/heap.o \
+	 ./build/memory/heap/kheap.o \
+	 ./build/memory/paging/paging.o \
+	 ./build/memory/paging/paging.asm.o \
+	 ./build/fs/file.o \
+	 ./build/fs/pparser.o \
+	 ./build/fs/fat/fat16.o
 INCLUDES = -I./src -I./src/gdt -I./src/task -I./src/idt -I./src/fs -I./src/fs/fat -I./src/loader/formats -I./src/isr80h -I./src/include
 BUILD_DIRS = ./bin ./build/memory/heap ./build/memory/paging ./build/keyboard ./build/disk ./build/fs ./build/fs/fat ./build/task ./build/loader/formats ./build/isr80h
 FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign-loops -fstrength-reduce -fomit-frame-pointer -finline-functions -Wno-unused-function -fno-builtin -Werror -Wno-unused-label -Wno-cpp -Wno-unused-parameter -nostdlib -nostartfiles -nodefaultlibs -Wall -O0 -Iinc -fno-pie -no-pie
@@ -65,14 +65,18 @@ all: user_programs dirs ./bin/boot.bin ./bin/kernel.bin
 	dd if=/dev/zero bs=1048576 count=16 >> ./bin/os.bin
 	# Mount the disk image and copy user programs
 	sudo mkdir -p $(MOUNT_DIR)
-	sudo mount -o loop -t vfat ./bin/os.bin $(MOUNT_DIR) || { echo "Error: failed to mount disk image"; exit 1; }
-	sudo cp ./programs/blank/blank.elf $(MOUNT_DIR)
-	if [ -f ./programs/shell/shell.elf ]; then \
-	sudo cp ./programs/shell/shell.elf $(MOUNT_DIR); \
+	if sudo mount -o loop -t vfat ./bin/os.bin $(MOUNT_DIR); then \
+	        sudo cp ./programs/blank/blank.elf $(MOUNT_DIR); \
+	        if [ -f ./programs/shell/shell.elf ]; then \
+	                sudo cp ./programs/shell/shell.elf $(MOUNT_DIR) || echo "Error: failed to copy shell.elf"; \
+	        else \
+	                echo "Warning: shell.elf not found, skipping copy"; \
+	        fi; \
+	        sudo umount $(MOUNT_DIR); \
 	else \
-	echo "Warning: shell.elf not found, skipping copy"; \
+	        echo "Error: failed to mount disk image"; \
+	        exit 1; \
 	fi
-	sudo umount $(MOUNT_DIR)
 
 ./bin/kernel.bin: $(FILES)
 	i686-elf-ld -g -relocatable $(FILES) -o ./build/kernelfull.o
