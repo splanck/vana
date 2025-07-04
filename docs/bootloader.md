@@ -2,7 +2,9 @@
 
 This document summarizes how the 16‑bit boot sector contained in
 `src/boot/boot.asm` brings the system into 32‑bit protected mode and loads the
-kernel from disk. The file is assembled as a 512 byte FAT16 boot sector.
+kernel from disk. The file is assembled as a 512 byte FAT16 boot sector and is
+assembled with `ORG 0x7C00` so that it executes at the traditional BIOS load
+address.
 
 ## FAT16 Boot Sector
 
@@ -27,8 +29,9 @@ Descriptor Table (GDT). The GDT defines three descriptors:
 2. A code segment descriptor (`gdt_code`) used once in protected mode
 3. A data segment descriptor (`gdt_data`) for all data segments
 
-The `lgdt` instruction loads the `gdt_descriptor` and the bootloader sets the PE
-bit in `CR0` before performing a far jump to `load32`, entering 32‑bit mode.
+The table size and address are described by `gdt_descriptor`, which sits right
+after `gdt_end`. The bootloader loads this descriptor with `lgdt`, sets the PE
+bit in `CR0` and performs a far jump to `load32`, entering 32‑bit mode.
 
 ## Protected Mode Initialization
 
@@ -36,7 +39,9 @@ The `load32` label executes with 32‑bit instructions. It reloads all segment
 registers with the data segment selector and enables the A20 line through port
 `0x92`. Once the CPU is in protected mode, the bootloader prepares to read the
 kernel by placing the target LBA, sector count, and destination address in
-`EAX`, `ECX` and `EDI` respectively and calling `ata_lba_read`.
+`EAX`, `ECX` and `EDI` respectively and calling `ata_lba_read`. In the source
+code this means loading sector **1** from disk for **100** consecutive sectors
+into address `0x0100000` before jumping there.
 
 ## ATA LBA Load Logic
 

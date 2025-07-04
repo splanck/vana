@@ -4,9 +4,16 @@ This document outlines how the kernel's keyboard subsystem is organised. Two fil
 
 ## Driver Interface (`keyboard.c/h`)
 
-A `struct keyboard` holds function pointers and state flags for caps lock and shift.  `keyboard_init()` registers available implementations and calls their `init` hooks. A global linked list allows supporting multiple keyboard types.
+A `struct keyboard` holds function pointers and state flags for caps lock and shift.
+`keyboard_init()` registers available implementations and calls their `init`
+hooks.  Each driver registers its interrupt handler with the IDT using
+`idt_register_interrupt_callback`. The PS/2 driver binds to IRQ&nbsp;1 via the
+constant `ISR_KEYBOARD_INTERRUPT` so key presses trigger `classic_keyboard_handle_interrupt`.
 
-Input characters are stored in a circular buffer defined by `struct keyboard_buffer`:
+Input characters are stored in a circular buffer defined by `struct keyboard_buffer`.
+The `head` index points to the next character to read while `tail` marks where
+the next character will be written.  Both indices are modulo
+`VANA_KEYBOARD_BUFFER_SIZE` so the buffer acts like a ring:
 
 ```c
 struct keyboard_buffer {

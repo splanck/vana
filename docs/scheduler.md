@@ -50,8 +50,14 @@ iretd
 ```
 
 `task_run_first_ever_task()` uses this mechanism to start the very first user
-process after initialization.  `task_next()` performs a simple round‑robin step
-by selecting `task_get_next()` and returning to the new task.
+process once initialization has completed. It simply switches to
+`task_head` and returns into user mode using `task_return`.
+
+`task_next()` implements round‑robin scheduling: it calls
+`task_get_next()` (wrapping to `task_head` when the end of the list is
+reached) and then performs a context switch to that task. Every time a
+task yields or exits this function advances to the next entry, so each
+task gets CPU time in order.
 `task_current_save_state()` copies the interrupt frame into a task when a
 kernel interrupt occurs so the scheduler can later resume it.
 

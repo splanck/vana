@@ -2,6 +2,9 @@
 
 The following tables summarize all C and assembly sources under the `src/` tree. Each entry gives a short description of what the file implements.
 
+The list below was verified against `find src -name '*.c' -or -name '*.asm'`
+and currently covers all 33 source files.
+
 ## Files
 
 - `src/boot/boot.asm` - 16‑bit boot sector that switches the CPU into protected mode and loads the kernel from disk. It also sets up a minimal GDT before jumping to the kernel entry point.

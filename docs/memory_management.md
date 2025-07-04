@@ -11,6 +11,9 @@ Kernel dynamic memory is provided by a simple block based heap. The heap uses a 
 #define VANA_HEAP_BLOCK_SIZE 4096
 #define VANA_HEAP_ADDRESS 0x01000000
 #define VANA_HEAP_TABLE_ADDRESS 0x00007E00
+#define VANA_PROGRAM_VIRTUAL_ADDRESS 0x400000
+#define VANA_USER_PROGRAM_STACK_SIZE (1024 * 16)
+#define VANA_PROGRAM_VIRTUAL_STACK_ADDRESS_START 0x3FF000
 ```
 
 The kernel heap is created in `kheap_init()` which sets up the table and calls `heap_create()`:
@@ -37,6 +40,11 @@ void kheap_init()
 Freeing memory with `heap_free()` walks the table starting at the block corresponding to the pointer and clears entries until the `HEAP_BLOCK_HAS_NEXT` flag is no longer set.
 
 `kmalloc`, `kzalloc` and `kfree` in `kheap.c` simply wrap these heap functions for kernel code.
+
+User processes do not share this heap. Instead, `process_malloc()` and
+`process_free()` manage per‑process allocations and are exposed to user space
+through the system call commands 4 and 5. These helpers ultimately rely on the
+kernel heap but map the memory into the requesting task's page directory.
 
 ## Paging (`paging.c`, `paging.asm`)
 
