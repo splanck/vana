@@ -26,6 +26,7 @@ Below is a table of all available topics.
 | [syscalls.md](syscalls.md) | System Calls |
 | [fat16.md](fat16.md) | FAT16 Filesystem Overview |
 | [scheduler.md](scheduler.md) | Task Scheduler |
+| [elf_loading.md](elf_loading.md) | ELF Loader and Paging Setup |
 | [files.md](files.md) | Source File Overview |
 
 For a high level introduction see the [project README](../README.md).
