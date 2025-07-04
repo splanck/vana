@@ -1,3 +1,11 @@
+/*
+ * Generic file API implementation.
+ *
+ * Filesystems register with fs_insert_filesystem() and supply callbacks for
+ * opening, reading and closing files. When a file is opened a new descriptor
+ * is allocated from file_descriptors[] and used to dispatch all subsequent
+ * operations to the owning filesystem.
+ */
 #include "file.h"
 #include "config.h"
 #include "memory/memory.h"
@@ -11,6 +19,7 @@
 struct filesystem* filesystems[VANA_MAX_FILESYSTEMS];
 struct file_descriptor* file_descriptors[VANA_MAX_FILE_DESCRIPTORS];
 
+// Locate a free entry in the filesystem table
 static struct filesystem** fs_get_free_filesystem()
 {
     for (int i = 0; i < VANA_MAX_FILESYSTEMS; i++)
@@ -24,6 +33,7 @@ static struct filesystem** fs_get_free_filesystem()
     return 0;
 }
 
+// Register a filesystem implementation with the kernel
 void fs_insert_filesystem(struct filesystem* filesystem)
 {
     struct filesystem** fs = fs_get_free_filesystem();
@@ -36,29 +46,34 @@ void fs_insert_filesystem(struct filesystem* filesystem)
     *fs = filesystem;
 }
 
+// Insert any filesystems that are built in to the kernel
 static void fs_static_load()
 {
     fs_insert_filesystem(fat16_init());
 }
 
+// Initialize the filesystems array and load built-in filesystems
 static void fs_load()
 {
     memset(filesystems, 0, sizeof(filesystems));
     fs_static_load();
 }
 
+// Prepare file descriptor tables and load filesystems
 void fs_init()
 {
     memset(file_descriptors, 0, sizeof(file_descriptors));
     fs_load();
 }
 
+// Free a file descriptor that was previously allocated
 static void file_free_descriptor(struct file_descriptor* desc)
 {
     file_descriptors[desc->index-1] = 0;
     kfree(desc);
 }
 
+// Allocate a new file descriptor structure for an opened file
 static int file_new_descriptor(struct file_descriptor** desc_out)
 {
     int res = -ENOMEM;
@@ -78,6 +93,7 @@ static int file_new_descriptor(struct file_descriptor** desc_out)
     return res;
 }
 
+// Resolve a descriptor index to its file_descriptor structure
 static struct file_descriptor* file_get_descriptor(int fd)
 {
     if (fd <= 0 || fd >= VANA_MAX_FILE_DESCRIPTORS)
@@ -89,6 +105,7 @@ static struct file_descriptor* file_get_descriptor(int fd)
     return file_descriptors[index];
 }
 
+// Determine which registered filesystem owns the provided disk
 struct filesystem* fs_resolve(struct disk* disk)
 {
     for (int i = 0; i < VANA_MAX_FILESYSTEMS; i++)
@@ -102,6 +119,7 @@ struct filesystem* fs_resolve(struct disk* disk)
     return 0;
 }
 
+// Convert an fopen() mode string ("r", "w", etc.) to a FILE_MODE value
 static FILE_MODE file_get_mode_by_string(const char* str)
 {
     FILE_MODE mode = FILE_MODE_INVALID;
@@ -121,6 +139,7 @@ static FILE_MODE file_get_mode_by_string(const char* str)
     return mode;
 }
 
+// Open a file and return a new descriptor index
 int fopen(const char* filename, const char* mode_str)
 {
     int res = 0;
@@ -204,6 +223,7 @@ out:
     return res;
 }
 
+// Populate stat with information about an open descriptor
 int fstat(int fd, struct file_stat* stat)
 {
     int res = 0;
@@ -217,6 +237,7 @@ int fstat(int fd, struct file_stat* stat)
     return res;
 }
 
+// Close a previously opened descriptor
 int fclose(int fd)
 {
     int res = 0;
@@ -235,6 +256,7 @@ int fclose(int fd)
     return res;
 }
 
+// Seek to a new position in an open descriptor
 int fseek(int fd, int offset, FILE_SEEK_MODE whence)
 {
     int res = 0;
@@ -248,6 +270,7 @@ int fseek(int fd, int offset, FILE_SEEK_MODE whence)
     return res;
 }
 
+// Read data from an open descriptor
 int fread(void* ptr, uint32_t size, uint32_t nmemb, int fd)
 {
     if (size == 0 || nmemb == 0 || fd < 1)
