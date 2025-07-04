@@ -1,5 +1,9 @@
 # FAT16 Filesystem Overview
 
+FAT16 provides the first usable filesystem for the OS. The bootloader relies on it to locate and load the kernel image from disk. Once the kernel is running, the same driver reads configuration files and user programs, allowing higher level components to be brought in from storage as needed.
+
+The filesystem hooks into the generic file layer so that calls like `fopen()` and `fread()` work with paths such as `0:/BIN/APP.EXE`. Directories and the File Allocation Table are parsed to resolve each portion of the path. By following cluster chains the loader can copy entire executables into memory before jumping into them.
+
 This document summarizes how the FAT16 driver and helper modules work together to provide file access. Key files include `src/fs/fat/fat16.c/h`, the generic file interface in `src/fs/file.c/h` and the path parser in `src/fs/pparser.c/h`.
 
 ## Path Parsing
@@ -38,3 +42,9 @@ int bytes = fread(buf, 1, sizeof(buf), fd);
 fclose(fd);
 ```
 `fopen()` resolves the path using the parser, `fread()` follows the FAT chain for the file and fills `buf`; `fclose()` releases the descriptor when finished.
+
+## Additional Technical Notes
+
+- **Cluster chains**: Each file is represented by a chain of 16-bit entries in the FAT. The driver walks this linked list with `fat16_get_fat_entry()` to discover the next cluster when reading sequential data.
+- **Directory traversal**: Directories are loaded into `struct fat_directory` objects and searched with `fat16_find_item_in_directory()` while following the `path_part` list produced by the parser. This recursive descent handles nested folders correctly.
+- **disk_stream usage**: Disk access goes through the `disk_stream` abstraction which maintains the current sector position. Two streams are kept inside `struct fat_private`: one for the FAT table and another for cluster data, minimising seeks during file reads.
