@@ -40,6 +40,12 @@ Returns the next character from the keyboard queue.
 ### `isr80h_command3_putchar` (`io.c`)
 Writes a single character to the terminal.
 
+## Memory allocation syscalls
+
+Commands 4 and 5 provide a simple heap interface. Command 4 allocates
+memory from the calling process heap and returns a pointer; command 5
+frees a pointer previously returned by command 4.
+
 ### `isr80h_command4_malloc` (`heap.c`)
 Allocates memory from the calling process heap. The size is taken from the user
 stack and the returned pointer is user‑space accessible.
