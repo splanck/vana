@@ -65,7 +65,7 @@ all: user_programs dirs ./bin/boot.bin ./bin/kernel.bin
 	dd if=/dev/zero bs=1048576 count=16 >> ./bin/os.bin
 	# Mount the disk image and copy user programs
 	sudo mkdir -p $(MOUNT_DIR)
-	sudo mount -t vfat ./bin/os.bin $(MOUNT_DIR)
+	sudo mount -o loop -t vfat ./bin/os.bin $(MOUNT_DIR) || { echo "Error: failed to mount disk image"; exit 1; }
 	sudo cp ./programs/blank/blank.elf $(MOUNT_DIR)
 	if [ -f ./programs/shell/shell.elf ]; then \
 	sudo cp ./programs/shell/shell.elf $(MOUNT_DIR); \
