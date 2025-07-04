@@ -126,6 +126,9 @@ static struct process_allocation* process_get_allocation_by_addr(struct process*
 }
 
 
+/*
+ * Free all heap allocations that a process has made during its lifetime.
+ */
 int process_terminate_allocations(struct process* process)
 {
     for (int i = 0; i < VANA_MAX_PROGRAM_ALLOCATIONS; i++)
@@ -139,6 +142,7 @@ int process_terminate_allocations(struct process* process)
     return 0;
 }
 
+/* Release memory allocated for a raw binary executable. */
 int process_free_binary_data(struct process* process)
 {
     if (process->ptr)
@@ -148,6 +152,7 @@ int process_free_binary_data(struct process* process)
     return 0;
 }
 
+/* Close and discard an ELF file previously loaded for a process. */
 int process_free_elf_data(struct process* process)
 {
     if (process->elf_file)
@@ -157,6 +162,7 @@ int process_free_elf_data(struct process* process)
 
     return 0;
 }
+/* Dispatch to the correct cleanup routine based on the program filetype. */
 int process_free_program_data(struct process* process)
 {
     int res = 0;
@@ -201,6 +207,10 @@ static void process_unlink(struct process* process)
     }
 }
 
+/*
+ * Release all resources owned by a process including its allocations,
+ * program image, stack and task structure.
+ */
 int process_free_process(struct process* process)
 {
     int res = 0;
@@ -226,6 +236,7 @@ out:
     return res;
 }
 
+/* Unlink a process and free it so another task can run. */
 int process_terminate(struct process* process)
 {
     // Unlink the process from the process array.
@@ -325,6 +336,10 @@ void process_free(struct process* process, void* ptr)
     kfree(ptr);
 }
 
+/*
+ * Load a raw binary executable from disk into kernel memory and record
+ * its location and size in the process structure.
+ */
 static int process_load_binary(const char* filename, struct process* process)
 {
     void* program_data_ptr = 0x00;
@@ -372,6 +387,9 @@ out:
     return res;
 }
 
+/*
+ * Parse an ELF executable and attach the resulting handle to the process.
+ */
 static int process_load_elf(const char* filename, struct process* process)
 {
     int res = 0;
@@ -387,6 +405,7 @@ static int process_load_elf(const char* filename, struct process* process)
 out:
     return res;
 }
+/* Try loading an ELF file first and fall back to a raw binary if needed. */
 static int process_load_data(const char* filename, struct process* process)
 {
     int res = 0;
@@ -399,6 +418,7 @@ static int process_load_data(const char* filename, struct process* process)
     return res;
 }
 
+/* Map a loaded raw binary into the process's virtual address space. */
 int process_map_binary(struct process* process)
 {
     int res = 0;
@@ -406,6 +426,7 @@ int process_map_binary(struct process* process)
     return res;
 }
 
+/* Map all loadable ELF segments for the process. */
 static int process_map_elf(struct process* process)
 {
     int res = 0;
@@ -430,6 +451,11 @@ static int process_map_elf(struct process* process)
     }
     return res;
 }
+/*
+ * Map the program image and stack for a newly created process. This
+ * dispatches to the ELF or binary helpers based on file type and then
+ * installs the user stack.
+ */
 int process_map_memory(struct process* process)
 {
     int res = 0;
@@ -470,6 +496,7 @@ int process_get_free_slot()
     return -EISTKN;
 }
 
+/* Allocate a free slot and load a program into it. */
 int process_load(const char* filename, struct process** process)
 {
     int res = 0;
@@ -485,6 +512,7 @@ out:
     return res;
 }
 
+/* Convenience wrapper that loads a program and immediately switches to it. */
 int process_load_switch(const char* filename, struct process** process)
 {
     int res = process_load(filename, process);
@@ -496,6 +524,10 @@ int process_load_switch(const char* filename, struct process** process)
     return res;
 }
 
+/*
+ * Load a program into a specific slot within the global process table.
+ * This sets up the process structure, creates its task and maps memory.
+ */
 int process_load_for_slot(const char* filename, struct process** process, int process_slot)
 {
     int res = 0;
