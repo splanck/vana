@@ -1,5 +1,17 @@
 [BITS 32]
 
+; System call numbers used by the stdlib wrappers
+%define VANA_SYS_SUM                       0
+%define VANA_SYS_WRITE                     1
+%define VANA_SYS_GETKEY                    2
+%define VANA_SYS_PUTCHAR                   3
+%define VANA_SYS_MALLOC                    4
+%define VANA_SYS_FREE                      5
+%define VANA_SYS_PROCESS_LOAD_START        6
+%define VANA_SYS_SYSTEM                    7
+%define VANA_SYS_PROCESS_GET_ARGUMENTS     8
+%define VANA_SYS_EXIT                      9
+
 section .asm
 
 global print:function
@@ -18,7 +30,7 @@ print:
     push ebp
     mov ebp, esp
     push dword[ebp+8]
-    mov eax, 1 ; Command print
+    mov eax, VANA_SYS_WRITE
     int 0x80
     add esp, 4
     pop ebp
@@ -28,7 +40,7 @@ print:
 vana_sum:
     push ebp
     mov ebp, esp
-    mov eax, 0 ; Command sum
+    mov eax, VANA_SYS_SUM
     push dword[ebp+12] ; b
     push dword[ebp+8] ; a
     int 0x80
@@ -40,7 +52,7 @@ vana_sum:
 vana_getkey:
     push ebp
     mov ebp, esp
-    mov eax, 2 ; Command getkey
+    mov eax, VANA_SYS_GETKEY
     int 0x80
     pop ebp
     ret
@@ -49,7 +61,7 @@ vana_getkey:
 vana_putchar:
     push ebp
     mov ebp, esp
-    mov eax, 3 ; Command putchar
+    mov eax, VANA_SYS_PUTCHAR
     push dword [ebp+8] ; Variable "c"
     int 0x80
     add esp, 4
@@ -60,7 +72,7 @@ vana_putchar:
 vana_malloc:
     push ebp
     mov ebp, esp
-    mov eax, 4 ; Command malloc (Allocates memory for the process)
+    mov eax, VANA_SYS_MALLOC
     push dword[ebp+8] ; Variable "size"
     int 0x80
     add esp, 4
@@ -71,7 +83,7 @@ vana_malloc:
 vana_free:
     push ebp
     mov ebp, esp
-    mov eax, 5 ; Command free (Frees the allocated memory for this process)
+    mov eax, VANA_SYS_FREE
     push dword[ebp+8] ; Variable "ptr"
     int 0x80
     add esp, 4
@@ -82,7 +94,7 @@ vana_free:
 vana_process_load_start:
     push ebp
     mov ebp, esp
-    mov eax, 6 ; Command process load start
+    mov eax, VANA_SYS_PROCESS_LOAD_START
     push dword[ebp+8] ; Variable "filename"
     int 0x80
     add esp, 4
@@ -93,7 +105,7 @@ vana_process_load_start:
 vana_system:
     push ebp
     mov ebp, esp
-    mov eax, 7 ; Command 7 process_system ( runs a system command based on the arguments)
+    mov eax, VANA_SYS_SYSTEM
     push dword[ebp+8] ; Variable "arguments"
     int 0x80
     add esp, 4
@@ -105,7 +117,7 @@ vana_system:
 vana_process_get_arguments:
     push ebp
     mov ebp, esp
-    mov eax, 8 ; Command 8 Gets the process arguments
+    mov eax, VANA_SYS_PROCESS_GET_ARGUMENTS
     push dword[ebp+8] ; Variable arguments
     int 0x80
     add esp, 4
@@ -116,7 +128,7 @@ vana_process_get_arguments:
 vana_exit:
     push ebp
     mov ebp, esp
-    mov eax, 9 ; Command 9 process exit
+    mov eax, VANA_SYS_EXIT
     push dword [ebp+8]
     int 0x80
     add esp, 4
