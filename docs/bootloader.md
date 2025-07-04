@@ -1,10 +1,21 @@
 # Bootloader Overview
 
-This document summarizes how the 16‑bit boot sector contained in
-`src/boot/boot.asm` brings the system into 32‑bit protected mode and loads the
-kernel from disk. The file is assembled as a 512 byte FAT16 boot sector and is
-assembled with `ORG 0x7C00` so that it executes at the traditional BIOS load
-address.
+The bootloader is the first code executed once the BIOS hands off control. It
+is built from `src/boot/boot.asm` and the `ORG 0x7C00` directive ensures the
+sector runs from the well‑known `0x7C00` address where the BIOS loads it. The
+entire image fits in one 512 byte sector and ends with the `0xAA55` signature so
+the BIOS recognizes it as a valid FAT16 boot sector.
+
+Its main job is to transition the processor into 32‑bit protected mode and load
+the kernel. A tiny Global Descriptor Table is defined in the boot code and its
+size and address are described by the `gdt_descriptor` structure. After the
+descriptor is loaded with `lgdt`, the bootloader sets the PE bit in `CR0` and
+performs a far jump so execution continues in 32‑bit mode.
+
+Once the CPU is operating with 32‑bit instructions, the bootloader reads sector
+**1** from disk for **100** consecutive sectors and stores the data at address
+`0x0100000`. It then jumps to this location to begin executing the kernel
+properly.
 
 ## FAT16 Boot Sector
 
