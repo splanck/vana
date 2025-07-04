@@ -1,3 +1,10 @@
+/*
+ * kernel.c - Kernel entry point and initialization routines.
+ *
+ * The kernel starts executing here after the bootloader transfers
+ * control from assembly stub code. All essential subsystems are
+ * initialized before the first user task is launched.
+ */
 #include "kernel.h"
 #include "string/string.h"
 #include "memory/memory.h"
@@ -36,16 +43,19 @@ struct gdt_structured gdt_structured[VANA_TOTAL_GDT_SEGMENTS] = {
     {.base = (uint32_t)&tss, .limit = sizeof(tss), .type = 0xE9} // TSS
 };
 
+/* Convert an ASCII character and colour into a VGA text entry */
 uint16_t terminal_make_char(char c, char colour)
 {
     return (colour << 8) | c;
 }
 
+/* Write a character to the screen at the given column and row */
 void terminal_putchar(int x, int y, char c, char colour)
 {
     video_mem[(y * VGA_WIDTH) + x] = terminal_make_char(c, colour);
 }
 
+/* Handle backspace by moving cursor left and clearing the cell */
 void terminal_backspace()
 {
     if (terminal_row == 0 && terminal_col == 0)
@@ -64,6 +74,7 @@ void terminal_backspace()
     terminal_col -= 1;
 }
 
+/* Output a character handling special cases like newline and backspace */
 void terminal_writechar(char c, char colour)
 {
     if (c == '\n')
@@ -87,6 +98,7 @@ void terminal_writechar(char c, char colour)
         terminal_row += 1;
     }
 }
+/* Clear the VGA text buffer and reset cursor position */
 void terminal_initialize()
 {
     video_mem = (uint16_t*)(0xB8000);
@@ -103,6 +115,7 @@ void terminal_initialize()
 
 
 
+/* Convenience wrapper to output a null terminated string */
 void print(const char* str)
 {
     size_t len = strlen(str);
@@ -112,18 +125,21 @@ void print(const char* str)
     }
 }
 
+/* Display a message and halt the system */
 void panic(const char* msg)
 {
     print(msg);
     while (1) {}
 }
 
+/* Activate the kernel paging directory */
 void kernel_page()
 {
     kernel_registers();
     paging_switch(kernel_chunk);
 }
 
+/* Load the test program twice and attach simple arguments */
 void inject_process_args()
 {
     struct process* process = 0;
@@ -149,6 +165,10 @@ void inject_process_args()
     process_inject_arguments(process, &argument);
 }
 
+/*
+ * Primary kernel entry invoked after low level assembly bootstrap.
+ * Initializes all core subsystems and launches the initial user task.
+ */
 void kernel_main()
 {
     terminal_initialize();
