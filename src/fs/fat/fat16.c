@@ -1,3 +1,13 @@
+/*
+ * FAT16 filesystem implementation.
+ *
+ * The driver parses the on-disk FAT headers to locate the root
+ * directory then uses helper streams to traverse subdirectories
+ * and follow cluster chains. Cluster handling converts between
+ * cluster numbers, absolute sectors and file offsets so callers
+ * can read arbitrary portions of a file without caring about the
+ * underlying layout.
+ */
 #include "fat16.h"
 #include "config.h"
 #include "string/string.h"
@@ -142,6 +152,11 @@ struct filesystem *fat16_init()
     return &fat16_fs;
 }
 
+/*
+ * Initialise the per-disk FAT bookkeeping structure. Three disk streams are
+ * created so that directory traversals, FAT lookups and cluster reads can
+ * occur independently without constant seeking.
+ */
 static void fat16_init_private(struct disk *disk, struct fat_private *private)
 {
     memset(private, 0, sizeof(struct fat_private));
@@ -153,11 +168,17 @@ private
     ->directory_stream = diskstreamer_new(disk->id);
 }
 
+/* Convert a logical sector index into an absolute byte address. */
 int fat16_sector_to_absolute(struct disk *disk, int sector)
 {
     return sector * disk->sector_size;
 }
 
+/*
+ * Count the number of valid directory entries starting at the given sector.
+ * Reading stops once a zero filename entry is encountered. Deleted entries are
+ * skipped while the directory stream advances sector by sector.
+ */
 int fat16_get_total_items_for_directory(struct disk *disk, uint32_t directory_start_sector)
 {
     struct fat_directory_item item;
@@ -205,6 +226,12 @@ out:
     return res;
 }
 
+/*
+ * Load the FAT root directory into memory.
+ * The start sector is derived from header fields and the entire directory
+ * is read using the directory stream. The resulting array and metadata are
+ * stored in the supplied fat_directory structure.
+ */
 int fat16_get_root_directory(struct disk *disk, struct fat_private *fat_private, struct fat_directory *directory)
 {
     int res = 0;
@@ -256,6 +283,11 @@ err_out:
 
     return res;
 }
+/*
+ * Verify the disk contains a FAT16 filesystem and load its initial metadata.
+ * This populates the fat_private structure, reads the boot sector header and
+ * parses the root directory so future lookups can be performed quickly.
+ */
 int fat16_resolve(struct disk *disk)
 {
     int res = 0;
@@ -304,6 +336,11 @@ out:
     return res;
 }
 
+/*
+ * Copy a padded FAT string into a conventional null terminated buffer.
+ * Stops when a space or NUL terminator is encountered or when the
+ * provided size limit is reached.
+ */
 void fat16_to_proper_string(char **out, const char *in, size_t size)
 {
     int i = 0;
@@ -323,6 +360,7 @@ void fat16_to_proper_string(char **out, const char *in, size_t size)
     **out = 0x00;
 }
 
+/* Build a "NAME.EXT" string from a directory entry. */
 void fat16_get_full_relative_filename(struct fat_directory_item *item, char *out, int max_len)
 {
     memset(out, 0x00, max_len);
@@ -335,6 +373,7 @@ void fat16_get_full_relative_filename(struct fat_directory_item *item, char *out
     }
 }
 
+/* Duplicate a directory entry so the caller can own the memory. */
 struct fat_directory_item *fat16_clone_directory_item(struct fat_directory_item *item, int size)
 {
     struct fat_directory_item *item_copy = 0;
@@ -353,21 +392,28 @@ struct fat_directory_item *fat16_clone_directory_item(struct fat_directory_item 
     return item_copy;
 }
 
+/* Extract the starting cluster number from a directory item. */
 static uint32_t fat16_get_first_cluster(struct fat_directory_item *item)
 {
     return (item->high_16_bits_first_cluster << 16) | item->low_16_bits_first_cluster;
 };
 
+/* Convert a cluster index to the absolute sector that stores it. */
 static int fat16_cluster_to_sector(struct fat_private *private, int cluster)
 {
     return private->root_directory.ending_sector_pos + ((cluster - 2) * private->header.primary_header.sectors_per_cluster);
 }
 
+/* The FAT begins immediately after the reserved sectors. */
 static uint32_t fat16_get_first_fat_sector(struct fat_private *private)
 {
     return private->header.primary_header.reserved_sectors;
 }
 
+/*
+ * Read the FAT entry for the supplied cluster. The FAT table
+ * stores 16-bit indices forming a linked list of clusters.
+ */
 static int fat16_get_fat_entry(struct disk *disk, int cluster)
 {
     int res = -1;
@@ -396,8 +442,10 @@ static int fat16_get_fat_entry(struct disk *disk, int cluster)
 out:
     return res;
 }
-/**
- * Gets the correct cluster to use based on the starting cluster and the offset
+/*
+ * Walk the FAT chain in order to find the cluster that contains a given file
+ * offset. Each cluster pointer is read from the FAT table until the desired
+ * offset has been reached or an invalid entry is hit.
  */
 static int fat16_get_cluster_for_offset(struct disk *disk, int starting_cluster, int offset)
 {
@@ -443,6 +491,11 @@ static int fat16_get_cluster_for_offset(struct disk *disk, int starting_cluster,
 out:
     return res;
 }
+/*
+ * Read a sequence of bytes from a file starting at the given cluster. The
+ * helper seeks the supplied stream to the correct sector and handles reads
+ * that span multiple clusters by recursing until all bytes have been copied.
+ */
 static int fat16_read_internal_from_stream(struct disk *disk, struct disk_stream *stream, int cluster, int offset, int total, void *out)
 {
     int res = 0;
@@ -483,6 +536,7 @@ out:
     return res;
 }
 
+/* Convenience wrapper that reads using the per-disk cluster stream. */
 static int fat16_read_internal(struct disk *disk, int starting_cluster, int offset, int total, void *out)
 {
     struct fat_private *fs_private = disk->fs_private;
@@ -490,6 +544,7 @@ static int fat16_read_internal(struct disk *disk, int starting_cluster, int offs
     return fat16_read_internal_from_stream(disk, stream, starting_cluster, offset, total, out);
 }
 
+/* Release memory owned by a fat_directory structure. */
 void fat16_free_directory(struct fat_directory *directory)
 {
     if (!directory)
@@ -505,6 +560,7 @@ void fat16_free_directory(struct fat_directory *directory)
     kfree(directory);
 }
 
+/* Free a fat_item and any directory or entry it references. */
 void fat16_fat_item_free(struct fat_item *item)
 {
     if (item->type == FAT_ITEM_TYPE_DIRECTORY)
@@ -519,6 +575,10 @@ void fat16_fat_item_free(struct fat_item *item)
     kfree(item);
 }
 
+/*
+ * Given a directory entry for a subdirectory, read the entire directory
+ * cluster chain into memory and return it as a fat_directory structure.
+ */
 struct fat_directory *fat16_load_fat_directory(struct disk *disk, struct fat_directory_item *item)
 {
     int res = 0;
@@ -562,6 +622,11 @@ out:
     }
     return directory;
 }
+/*
+ * Wrap a directory entry in a fat_item structure. Directories are lazily
+ * loaded so only the descriptor is cloned for files while subdirectories are
+ * read immediately.
+ */
 struct fat_item *fat16_new_fat_item_for_directory_item(struct disk *disk, struct fat_directory_item *item)
 {
     struct fat_item *f_item = kzalloc(sizeof(struct fat_item));
@@ -582,6 +647,7 @@ struct fat_item *fat16_new_fat_item_for_directory_item(struct disk *disk, struct
     return f_item;
 }
 
+/* Search a directory for an entry matching the given name. */
 struct fat_item *fat16_find_item_in_directory(struct disk *disk, struct fat_directory *directory, const char *name)
 {
     struct fat_item *f_item = 0;
@@ -598,6 +664,10 @@ struct fat_item *fat16_find_item_in_directory(struct disk *disk, struct fat_dire
 
     return f_item;
 }
+/*
+ * Traverse the directory hierarchy described by the parsed path and return
+ * the final fat_item representing the file or directory.
+ */
 struct fat_item *fat16_get_directory_entry(struct disk *disk, struct path_part *path)
 {
     struct fat_private *fat_private = disk->fs_private;
@@ -627,6 +697,10 @@ out:
     return current_item;
 }
 
+/*
+ * Filesystem open callback. Resolves the path to a fat_item and allocates a
+ * file descriptor used for subsequent operations.
+ */
 void *fat16_open(struct disk *disk, struct path_part *path, FILE_MODE mode)
 {
     struct fat_file_descriptor *descriptor = 0;
@@ -661,6 +735,7 @@ err_out:
     return ERROR(err_code);
 }
 
+/* Helper for close() to release a fat_file_descriptor. */
 static void fat16_free_file_descriptor(struct fat_file_descriptor* desc)
 {
     fat16_fat_item_free(desc->item);
@@ -668,12 +743,14 @@ static void fat16_free_file_descriptor(struct fat_file_descriptor* desc)
 }
 
 
+/* Filesystem close callback. */
 int fat16_close(void* private)
 {
     fat16_free_file_descriptor((struct fat_file_descriptor*) private);
     return 0;
 }
 
+/* Populate a file_stat structure for an open descriptor. */
 int fat16_stat(struct disk* disk, void* private, struct file_stat* stat)
 {
     int res = 0;
@@ -697,6 +774,7 @@ out:
     return res;
 }
 
+/* Read one or more objects from an open file descriptor. */
 int fat16_read(struct disk *disk, void *descriptor, uint32_t size, uint32_t nmemb, char *out_ptr)
 {
     int res = 0;
@@ -720,6 +798,7 @@ out:
     return res;
 }
 
+/* Adjust the read position for an open FAT file descriptor. */
 int fat16_seek(void *private, uint32_t offset, FILE_SEEK_MODE seek_mode)
 {
     int res = 0;
