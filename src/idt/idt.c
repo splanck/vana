@@ -1,3 +1,10 @@
+/*
+ * idt.c - Interrupt Descriptor Table setup and syscall dispatcher.
+ *
+ * The IDT routes hardware and software interrupts to their handlers.
+ * This file builds the table at boot and provides a small API for
+ * registering callbacks and system call commands.
+ */
 #include "idt.h"
 #include "gdt/gdt.h"
 #include "io/io.h"
@@ -75,6 +82,11 @@ void interrupt_handler(int interrupt, struct interrupt_frame* frame)
     }
 }
 
+/*
+ * Populate the IDT with default handlers and enable it.
+ * Vector 0x80 is reserved for user-mode system calls and
+ * early exceptions register a simple termination callback.
+ */
 void idt_init()
 {
     memset(idt_descriptors, 0, sizeof(idt_descriptors));
@@ -102,6 +114,10 @@ void idt_init()
     idt_register_interrupt_callback(0x2F, interrupt_ignore);
 }
 
+/*
+ * Register a C callback for the specified interrupt number.
+ * Returns 0 on success or -1 if the vector is invalid.
+ */
 int idt_register_interrupt_callback(int interrupt, INTERRUPT_CALLBACK_FUNCTION callback)
 {
     if (interrupt < 0 || interrupt >= IDT_TOTAL_DESCRIPTORS)
@@ -113,6 +129,7 @@ int idt_register_interrupt_callback(int interrupt, INTERRUPT_CALLBACK_FUNCTION c
     return 0;
 }
 
+/* Register a function that implements an isr80h system call. */
 void isr80h_register_command(int command_id, ISR80H_COMMAND command)
 {
     if (command_id < 0 || command_id >= VANA_MAX_ISR80H_COMMANDS)
@@ -128,6 +145,7 @@ void isr80h_register_command(int command_id, ISR80H_COMMAND command)
     isr80h_commands[command_id] = command;
 }
 
+/* Dispatch a previously registered isr80h command. */
 void* isr80h_handle_command(int command, struct interrupt_frame* frame)
 {
     void* result = 0;
@@ -147,6 +165,10 @@ void* isr80h_handle_command(int command, struct interrupt_frame* frame)
     return result;
 }
 
+/*
+ * Main isr80h handler called from assembly.
+ * Switches to the kernel page directory and executes the command.
+ */
 void* isr80h_handler(int command, struct interrupt_frame* frame)
 {
     void* res = 0;
