@@ -112,11 +112,13 @@ vana_process_get_arguments:
     pop ebp
     ret
 
-; void vana_exit()
+; void vana_exit(int status)
 vana_exit:
     push ebp
     mov ebp, esp
     mov eax, 9 ; Command 9 process exit
+    push dword [ebp+8]
     int 0x80
+    add esp, 4
     pop ebp
     ret
