@@ -5,6 +5,15 @@
 #include "idt/idt.h"
 #include <stdint.h>
 
+/*
+ * keyboard.c - generic keyboard manager
+ *
+ * Drivers translate raw hardware scancodes into ASCII characters and push
+ * them into a small ring buffer. Code elsewhere in the kernel retrieves
+ * characters from this buffer via keyboard_pop(). keyboard_insert() allows
+ * new implementations to register themselves and initialise any hardware.
+ */
+
 static struct keyboard* keyboard_list_head = 0;
 static struct keyboard* keyboard_list_last = 0;
 
@@ -22,6 +31,11 @@ void keyboard_init()
     keyboard_insert(classic_init());
 }
 
+/**
+ * Register a keyboard driver and call its init hook.
+ * Drivers are appended to a simple linked list so multiple
+ * implementations can coexist.
+ */
 int keyboard_insert(struct keyboard* keyboard)
 {
     int res = 0;
@@ -89,6 +103,10 @@ void keyboard_push(char c)
     kbuffer.tail++;
 }
 
+/**
+ * Retrieve the next character from the buffer.
+ * Returns 0 if no characters are available.
+ */
 char keyboard_pop()
 {
     int real_index = kbuffer.head % VANA_KEYBOARD_BUFFER_SIZE;

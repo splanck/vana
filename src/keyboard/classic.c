@@ -101,6 +101,12 @@ uint8_t classic_keyboard_scancode_to_char(uint8_t scancode)
     return c;
 }
 
+/**
+ * Interrupt handler for PS/2 scancodes on IRQ1.
+ * Translates the incoming byte into an ASCII character while
+ * tracking shift and caps lock state. Valid characters are
+ * pushed into the shared keyboard buffer.
+ */
 void classic_keyboard_handle_interrupt()
 {
     uint8_t scancode = insb(KEYBOARD_INPUT_PORT);
