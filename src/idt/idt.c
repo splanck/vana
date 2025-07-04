@@ -128,6 +128,10 @@ int idt_register_interrupt_callback(int interrupt, INTERRUPT_CALLBACK_FUNCTION c
     interrupt_callbacks[interrupt] = callback;
     return 0;
 }
+/*
+ * Register a system call handler for the given command id.
+ * Panics if the id is invalid or already registered.
+ */
 
 /* Register a function that implements an isr80h system call. */
 void isr80h_register_command(int command_id, ISR80H_COMMAND command)
@@ -144,6 +148,10 @@ void isr80h_register_command(int command_id, ISR80H_COMMAND command)
 
     isr80h_commands[command_id] = command;
 }
+/*
+ * Look up the handler for a command and execute it.
+ * Returns the handler result or NULL for invalid commands.
+ */
 
 /* Dispatch a previously registered isr80h command. */
 void* isr80h_handle_command(int command, struct interrupt_frame* frame)
@@ -164,6 +172,10 @@ void* isr80h_handle_command(int command, struct interrupt_frame* frame)
     result = func(frame);
     return result;
 }
+/*
+ * Top level ISR for 0x80. Saves task state, dispatches the command and
+ * restores the user page table.
+ */
 
 /*
  * Main isr80h handler called from assembly.
