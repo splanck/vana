@@ -83,6 +83,11 @@ interrupts use a known kernel stack.
 
 ## Process management (`process.c/h`)
 
+The process subsystem is responsible for loading executables from disk,
+creating a task to run them and mapping the program image plus stack into
+the new address space. It also tracks heap allocations on behalf of the
+process and cleans up all mapped memory once the program exits.
+
 A `struct process` owns the resources of a program and its main task:
 
 ```c
