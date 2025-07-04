@@ -23,6 +23,12 @@ This kernel uses the x86 Global Descriptor Table to define the memory
 segments that code and data run in.  The implementation is split between
 `gdt.c`, `gdt.h` and the small assembly helper `gdt.asm`.
 
+### Descriptor creation
+
+Descriptors are first declared in the friendlier `struct gdt_structured` form.
+`gdt_structured_to_gdt()` encodes them into the packed eight-byte layout via
+`encode_gdt_entry` before `gdt_load()` installs the table.
+
 ## Data structures
 
 `gdt.h` declares three structures:
@@ -67,6 +73,12 @@ occupies byte 5 and the granularity or size flags occupy byte 6.
 ## Loading the GDT
 
 The actual loading of the table is handled in `gdt.asm`.  The exported
+
+### Descriptor creation
+
+Descriptors are first declared in the friendlier `struct gdt_structured` form.
+`gdt_structured_to_gdt()` encodes them into the packed eight-byte layout via
+`encode_gdt_entry` before `gdt_load()` installs the table.
 function `gdt_load(struct gdt_descriptor *desc)` performs the following
 steps:
 
