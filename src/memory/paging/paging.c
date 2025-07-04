@@ -1,3 +1,11 @@
+/*
+ * paging.c - page directory and mapping helpers
+ *
+ * Provides creation of identity-mapped page tables, utilities to map
+ * virtual addresses, translate them back to physical addresses and
+ * switch directories. Each paging_4gb_chunk owns a directory with
+ * 1024 page tables covering the full 4GiB space.
+ */
 #include "paging.h"
 #include "memory/memory.h"
 #include "memory/heap/kheap.h"
@@ -7,6 +15,13 @@
 void paging_load_directory(uint32_t* directory);
 
 static uint32_t* current_directory = 0;
+/**
+ * Allocate a new paging_4gb_chunk with identity mapped pages.
+ * Each of the 1024 directory entries points to its own page table
+ * covering 4MB so the entire 4GiB address space is mapped.
+ * @param flags  Attributes for every page such as writable/present.
+ * @return       Pointer to the newly allocated chunk.
+ */
 
 struct paging_4gb_chunk* paging_new_4gb(uint8_t flags)
 {
@@ -89,6 +104,15 @@ void* paging_align_to_lower_page(void* addr)
     return (void*) _addr;
 }
 
+/**
+ * Map a single 4KiB page within a paging_4gb_chunk.
+ * Both `virt` and `phys` must be page aligned.
+ * @param directory  Target paging chunk whose directory is updated.
+ * @param virt       Virtual address to map.
+ * @param phys       Physical address to map to.
+ * @param flags      Entry flags combined with the physical frame.
+ * @return           0 on success or negative on alignment error.
+ */
 int paging_map(struct paging_4gb_chunk* directory, void* virt, void* phys, int flags)
 {
     if (((unsigned int)virt % PAGING_PAGE_SIZE) || ((unsigned int) phys % PAGING_PAGE_SIZE))
@@ -168,6 +192,14 @@ int paging_set(uint32_t* directory, void* virt, uint32_t val)
     return 0;
 }
 
+/**
+ * Translate a virtual address to the mapped physical address.
+ * The lookup uses the provided paging directory and handles non page-aligned
+ * addresses by rounding down to the nearest page.
+ * @param directory  Paging directory to search.
+ * @param virt       Virtual address to translate.
+ * @return           The physical address mapped to `virt`.
+ */
 void* paging_get_physical_address(uint32_t* directory, void* virt)
 {
     void* virt_addr_new = (void*) paging_align_to_lower_page(virt);
