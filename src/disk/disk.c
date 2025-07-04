@@ -1,3 +1,9 @@
+/*
+ * ATA disk driver using PIO read operations.
+ * This module handles low level sector access for the kernel.
+ * Only a single drive is supported and higher layers
+ * use this interface through the filesystem.
+ */
 #include "disk.h"
 #include "io/io.h"
 #include "config.h"
@@ -6,6 +12,14 @@
 
 static struct disk disk;
 
+/*
+ * Read one or more sectors from the primary ATA drive.
+ *
+ * @param lba   Logical block address of the first sector.
+ * @param total Number of sectors to read.
+ * @param buf   Destination buffer (must hold total * 512 bytes).
+ * @return      Zero on success, negative error code otherwise.
+ */
 static int disk_read_sector(int lba, int total, void* buf)
 {
     outb(0x1F6, (lba >> 24) | 0xE0);
@@ -36,6 +50,11 @@ static int disk_read_sector(int lba, int total, void* buf)
     return 0;
 }
 
+/*
+ * Probe for the primary disk and initialise the global descriptor.
+ * The filesystem driver is resolved here so later calls can access
+ * the disk via disk_get() and disk_read_block().
+ */
 void disk_search_and_init()
 {
     memset(&disk, 0, sizeof(disk));
@@ -53,6 +72,10 @@ struct disk* disk_get(int index)
     return &disk;
 }
 
+/*
+ * Public wrapper used by the filesystem layer to read sectors.
+ * Validates the disk pointer and forwards to disk_read_sector().
+ */
 int disk_read_block(struct disk* idisk, unsigned int lba, int total, void* buf)
 {
     if (idisk != &disk)
