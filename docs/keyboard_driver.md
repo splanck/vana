@@ -1,6 +1,23 @@
 # Keyboard Driver Overview
 
-This document outlines how the kernel's keyboard subsystem is organised. Two files, `keyboard.c/h`, expose a generic driver interface and ring buffer.  The "classic" PS/2 implementation lives in `classic.c/h`.
+The keyboard subsystem is responsible for turning raw PS/2 scancodes into
+ASCII characters that the rest of the kernel can consume.  Its default
+implementation is the "classic" driver which listens on **IRQ&nbsp;1** so an
+interrupt is raised every time a key is pressed or released.
+
+At the heart of the subsystem is a small ring buffer used to decouple the
+interrupt handler from code that reads input.  Characters translated from the
+scancode stream are appended to this buffer while consumers call
+`keyboard_pop()` to retrieve them later.  The buffer maintains two indices:
+`head` points to the next character to read and `tail` marks the next free slot
+for writing.  Both wrap around `VANA_KEYBOARD_BUFFER_SIZE` so the structure acts
+as a continuous queue.
+
+Scancodes follow **set&nbsp;1** and are translated using the
+`keyboard_scan_set_one` table.  The handler reads a byte from port `0x60`,
+checks the release bit and looks up the corresponding ASCII value while taking
+shift and caps lock state into account.  Valid characters are then pushed into
+the ring buffer.
 
 ## Driver Interface (`keyboard.c/h`)
 
