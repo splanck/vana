@@ -8,5 +8,6 @@ int c_start()
     vana_process_get_arguments(&arguments);
 
     int res = main(arguments.argc, arguments.argv);
+    vana_exit(res);
     return res;
 }

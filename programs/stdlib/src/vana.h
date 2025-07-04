@@ -29,6 +29,6 @@ struct command_argument* vana_parse_command(const char* command, int max);
 void vana_process_get_arguments(struct process_arguments* arguments);
 int vana_system(struct command_argument* arguments);
 int vana_system_run(const char* command);
-void vana_exit();
+void vana_exit(int status);
 
 #endif
