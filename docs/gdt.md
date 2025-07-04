@@ -1,5 +1,24 @@
 # Global Descriptor Table (GDT)
 
+Segmentation on x86 is described by descriptors stored in the Global
+Descriptor Table. Each descriptor defines a region of memory and the
+privilege level it operates under. The kernel installs its own GDT
+early in boot so that both kernel and user code run with predictable
+limits and access rights.
+
+The table used by Vana contains six entries: a null descriptor, kernel
+code and data descriptors, user code and data descriptors, and a Task
+State Segment (TSS) descriptor. Convenience constants defined in
+`src/config.h` expose their selectors to the rest of the kernel,
+including `KERNEL_CODE_SELECTOR` (0x08), `KERNEL_DATA_SELECTOR` (0x10),
+`USER_CODE_SEGMENT` (0x1b) and `USER_DATA_SEGMENT` (0x23). The TSS entry
+is selected with `GDT_TSS_SELECTOR`.
+
+With these selectors loaded the CPU executes kernel code in ring&nbsp;0
+while user programs run in ring&nbsp;3. The TSS descriptor enables interrupts
+and system calls to switch to the kernel stack, forming the bridge
+between user and kernel mode.
+
 This kernel uses the x86 Global Descriptor Table to define the memory
 segments that code and data run in.  The implementation is split between
 `gdt.c`, `gdt.h` and the small assembly helper `gdt.asm`.
