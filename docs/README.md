@@ -1,6 +1,18 @@
 # Documentation
 
-This directory contains detailed notes on how the kernel is implemented.
+This directory serves as the central collection of notes and design guides for
+the Vana kernel.  Each document focuses on a specific subsystem and describes
+the major structures, algorithms and conventions used in the implementation.
+Reading through these files is the best way to gain context on how the project
+is organized and why certain design decisions were made.
+
+The subsystems described here combine to form a minimal yet complete operating
+system.  The bootloader prepares the environment and loads the kernel, which in
+turn sets up memory management, interrupt handling and hardware drivers.  On top
+of these foundations are the scheduler and system call layer that allow user
+programs to run.  Together, these components provide a clear picture of how the
+kernel pieces fit together.
+
 Below is a table of all available topics.
 
 | Document | Description |
