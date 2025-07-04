@@ -2,6 +2,11 @@
 
 This document summarizes the heap and paging implementations found under `src/memory` along with the basic memory utility functions.
 
+On startup the kernel configures paging by building an identity-mapped 4 GB directory. The routine `paging_new_4gb()` allocates each page table, fills it with the correct flags, and returns the resulting chunk. Once created the directory is activated with `paging_switch` and paging is enabled in the CPU.
+
+Each process receives its own directory based on this initial mapping so the kernel remains identity mapped while programs are mapped at `VANA_PROGRAM_VIRTUAL_ADDRESS`. Task switches simply call `paging_switch` to install the proper directory.
+
+Dynamic memory inside the kernel is served from a dedicated heap created in `kheap_init()`. User programs allocate memory through `process_malloc` and release it with `process_free`; these helpers allocate from the kernel heap but map the pages into the requesting process.
 ## Heap (`heap.c`, `kheap.c`)
 
 Kernel dynamic memory is provided by a simple block based heap. The heap uses a table (`struct heap_table`) where each byte describes a block. The relevant configuration values are defined in `src/config.h`:
