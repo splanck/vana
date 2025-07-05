@@ -47,11 +47,13 @@ dirs:
 	mkdir -p $(BUILD_DIRS)
 
 user_programs:
+	cd ./programs/libc && $(MAKE)
 	cd ./programs/stdlib && $(MAKE)
 	cd ./programs/blank && $(MAKE)
 	cd ./programs/shell && $(MAKE)
 
 user_programs_clean:
+	- cd ./programs/libc && $(MAKE) clean
 	- cd ./programs/stdlib && $(MAKE) clean
 	- cd ./programs/blank && $(MAKE) clean
 	- cd ./programs/shell && $(MAKE) clean
