@@ -1,15 +1,20 @@
 #include "string.h"
 
-/*
- * Minimal string utility routines used throughout the kernel.  These
- * helpers implement common libc functionality such as measuring string
- * length and copying buffers without relying on the host C library.
- * The primitives here are shared by both kernel and user space code.
+/**
+ * @file string.c
+ * @brief Minimal C string helpers used by the kernel and user programs.
+ *
+ * The kernel cannot rely on the host C library, so a subset of standard
+ * routines are reimplemented here. They are lightweight but compatible with the
+ * usual libc counterparts.
  */
 
-/*
- * Convert an uppercase ASCII character to lowercase.  Characters
- * outside the A-Z range are returned unchanged.
+/**
+ * Convert an uppercase ASCII character to lowercase.
+ *
+ * Characters outside the 'A'-'Z' range are returned unchanged. This helper is
+ * used when implementing case-insensitive string comparisons within the
+ * kernel.
  */
 char tolower(char s1)
 {
@@ -21,9 +26,11 @@ char tolower(char s1)
     return s1;
 }
 
-/*
- * Return the length of a NUL terminated string.  This avoids relying
- * on the host implementation of strlen.
+/**
+ * Calculate the length of a NUL terminated string.
+ *
+ * Implemented so the kernel does not rely on the host's libc. Returns the
+ * number of characters before the NUL byte.
  */
 int strlen(const char* ptr)
 {
@@ -37,9 +44,11 @@ int strlen(const char* ptr)
     return i;
 }
 
-/*
- * Bounded string length.  Scan at most max bytes looking for the
- * terminating NUL and return the number of characters seen.
+/**
+ * Return the length of a string but scan at most `max` bytes.
+ *
+ * This guards against reading beyond the provided buffer when a NUL terminator
+ * may be missing. The count returned excludes the NUL if found.
  */
 int strnlen(const char* ptr, int max)
 {
@@ -53,9 +62,11 @@ int strnlen(const char* ptr, int max)
     return i;
 }
 
-/*
- * Variant of strnlen that also stops at the provided terminator
- * character in addition to a NUL byte.
+/**
+ * Version of strnlen that also stops at a custom terminator.
+ *
+ * Useful when parsing path strings where components are separated by a
+ * specific character. Scans no more than `max` bytes.
  */
 int strnlen_terminator(const char* str, int max, char terminator)
 {
@@ -69,9 +80,11 @@ int strnlen_terminator(const char* str, int max, char terminator)
     return i;
 }
 
-/*
- * Case-insensitive string compare of at most n characters.
- * Differences are returned similarly to strncmp.
+/**
+ * Compare two strings ignoring case for at most `n` characters.
+ *
+ * Differences are returned in the same fashion as strncmp. This is used by the
+ * filesystem to compare path components in a case-insensitive manner.
  */
 int istrncmp(const char* s1, const char* s2, int n)
 {
@@ -92,6 +105,12 @@ int istrncmp(const char* s1, const char* s2, int n)
  * Compare two strings for at most n characters and return
  * the difference of the first mismatching byte.
  */
+/**
+ * Compare two strings for at most `n` characters.
+ *
+ * Returns the difference between the first mismatching bytes. Used throughout
+ * the kernel when parsing configuration strings and file names.
+ */
 int strncmp(const char* str1, const char* str2, int n)
 {
     unsigned char u1, u2;
@@ -109,9 +128,11 @@ int strncmp(const char* str1, const char* str2, int n)
     return 0;
 }
 
-/*
- * Copy the NUL terminated string src into dest.  The destination
- * buffer must be large enough to hold the entire source string.
+/**
+ * Copy a NUL terminated string into the destination buffer.
+ *
+ * The caller must ensure `dest` is large enough. Used heavily by the loader
+ * and filesystem code when constructing paths and messages.
  */
 char* strcpy(char* dest, const char* src)
 {
@@ -128,9 +149,11 @@ char* strcpy(char* dest, const char* src)
     return res;
 }
 
-/*
- * Copy at most count-1 characters from src into dest and always
- * NUL terminate the destination buffer.
+/**
+ * Safe string copy with explicit length.
+ *
+ * Copies up to `count-1` characters and always terminates `dest` with a NUL
+ * byte. This avoids buffer overruns when handling user supplied data.
  */
 char* strncpy(char* dest, const char* src, int count)
 {
@@ -148,19 +171,27 @@ char* strncpy(char* dest, const char* src, int count)
 }
 
 /* Return true if the ASCII character c is a decimal digit. */
+/**
+ * Check if a character is an ASCII decimal digit.
+ */
 bool isdigit(char c)
 {
     return c >= 48 && c <= 57;
 }
 /* Convert an ASCII digit to its numeric value. */
+/**
+ * Convert an ASCII digit into its numeric value.
+ */
 int tonumericdigit(char c)
 {
     return c - 48;
 }
 
-/*
- * Convert an integer value to its decimal string representation.
- * The output buffer must be large enough to hold the result.
+/**
+ * Convert an integer value to a decimal string.
+ *
+ * The output buffer must be large enough to hold the resulting digits and NUL
+ * terminator. Used primarily for debug output.
  */
 void int_to_string(int value, char* out)
 {

@@ -1,18 +1,22 @@
 #include "pic.h"
 #include "io/io.h"
 
-/*
- * pic.c - Basic helpers for the Programmable Interrupt Controller.
+/**
+ * @file pic.c
+ * @brief Helpers for interacting with the Programmable Interrupt Controller.
  *
- * During early boot the master and slave PICs are remapped in
- * `kernel.asm` so hardware IRQs use vectors 0x20-0x2F. All lines are
- * initially masked. Once an interrupt is handled an End Of Interrupt
- * (EOI) command must be sent to the controller. For IRQs delivered by
- * the slave both PICs must receive an EOI.
-*/
+ * The PIC is remapped during early boot so that hardware IRQs begin at vector
+ * 0x20. Each interrupt must be acknowledged with an End Of Interrupt command.
+ * If the interrupt originated from the slave (IRQs 8-15) both PICs require an
+ * acknowledgement.
+ */
 
-// Send an EOI to the PICs for the specified IRQ number.
-// IRQs >= 8 originate from the slave and require acknowledging both chips.
+/**
+ * Send an End Of Interrupt command to the PICs.
+ *
+ * @param irq The IRQ number being acknowledged. IRQs >= 8 originate from the
+ *            slave controller and therefore both controllers must be updated.
+ */
 void pic_send_eoi(int irq)
 {
     if (irq >= 8)

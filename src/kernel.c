@@ -43,19 +43,37 @@ struct gdt_structured gdt_structured[VANA_TOTAL_GDT_SEGMENTS] = {
     {.base = (uint32_t)&tss, .limit = sizeof(tss), .type = 0xE9} // TSS
 };
 
-/* Convert an ASCII character and colour into a VGA text entry */
+/**
+ * Convert an ASCII character and attribute into a VGA text mode entry.
+ *
+ * Each cell in the VGA buffer packs the foreground/background colour in the
+ * high byte and the ASCII code in the low byte. This helper builds that
+ * encoding so characters can be written directly to video memory at 0xB8000.
+ */
 uint16_t terminal_make_char(char c, char colour)
 {
     return (colour << 8) | c;
 }
 
-/* Write a character to the screen at the given column and row */
+/**
+ * Output a single character at the given column and row.
+ *
+ * The VGA text buffer is treated as a two dimensional array where each
+ * element contains the packed character and attribute. Coordinates outside the
+ * screen dimensions are not checked.
+ */
 void terminal_putchar(int x, int y, char c, char colour)
 {
     video_mem[(y * VGA_WIDTH) + x] = terminal_make_char(c, colour);
 }
 
-/* Handle backspace by moving cursor left and clearing the cell */
+/**
+ * Handle a backspace on the text console.
+ *
+ * The cursor is moved left one character, wrapping to the previous line when
+ * necessary, and the character cell is cleared. This keeps the visible screen
+ * state consistent with typed input.
+ */
 void terminal_backspace()
 {
     if (terminal_row == 0 && terminal_col == 0)
@@ -74,7 +92,13 @@ void terminal_backspace()
     terminal_col -= 1;
 }
 
-/* Output a character handling special cases like newline and backspace */
+/**
+ * Write a character to the console handling newlines and backspaces.
+ *
+ * Printing directly to video memory is one of the earliest forms of
+ * output available during boot. This function updates cursor position and
+ * wraps lines when reaching the edge of the screen.
+ */
 void terminal_writechar(char c, char colour)
 {
     if (c == '\n')
@@ -98,7 +122,13 @@ void terminal_writechar(char c, char colour)
         terminal_row += 1;
     }
 }
-/* Clear the VGA text buffer and reset cursor position */
+/**
+ * Initialize the text mode console.
+ *
+ * This maps video_mem to the VGA memory region and clears the screen by
+ * writing spaces to every cell. The cursor position is reset to the origin so
+ * subsequent writes appear at the top left corner.
+ */
 void terminal_initialize()
 {
     video_mem = (uint16_t*)(0xB8000);
@@ -110,12 +140,18 @@ void terminal_initialize()
         {
             terminal_putchar(x, y, ' ', 0);
         }
-    }   
+    }
 }
 
 
 
-/* Convenience wrapper to output a null terminated string */
+/**
+ * Print a NUL terminated string to the text console.
+ *
+ * This is a lightweight replacement for printf used before the C library is
+ * available. It simply iterates over the buffer and writes each character with
+ * the default colour attribute.
+ */
 void print(const char* str)
 {
     size_t len = strlen(str);
@@ -125,21 +161,39 @@ void print(const char* str)
     }
 }
 
-/* Display a message and halt the system */
+/**
+ * Display a panic message then halt the CPU.
+ *
+ * When a fatal error occurs the kernel disables further progress by spinning
+ * forever. Using this simple routine avoids returning to an inconsistent
+ * state.
+ */
 void panic(const char* msg)
 {
     print(msg);
     while (1) {}
 }
 
-/* Activate the kernel paging directory */
+/**
+ * Switch to the kernel page directory.
+ *
+ * This is called during system calls to temporarily map kernel space while
+ * processing the request. It restores the segment registers before switching
+ * directories.
+ */
 void kernel_page()
 {
     kernel_registers();
     paging_switch(kernel_chunk);
 }
 
-/* Load the test program twice and attach simple arguments */
+/**
+ * Load the sample user program twice with different arguments.
+ *
+ * This utility demonstrates how command line arguments are passed to user
+ * processes. It is only used for testing from kernel_main and not during
+ * normal boot.
+ */
 void inject_process_args()
 {
     struct process* process = 0;
@@ -165,9 +219,12 @@ void inject_process_args()
     process_inject_arguments(process, &argument);
 }
 
-/*
- * Primary kernel entry invoked after low level assembly bootstrap.
- * Initializes all core subsystems and launches the initial user task.
+/**
+ * Kernel entry point called from the assembly bootstrap.
+ *
+ * The kernel sets up descriptor tables, paging, the heap, drivers and the
+ * initial user process. Once interrupts are enabled and the first task is
+ * scheduled this function should never return.
  */
 void kernel_main()
 {
