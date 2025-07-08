@@ -7,8 +7,13 @@
 struct heap kernel_heap;
 struct heap_table kernel_heap_table;
 
-// Configure the kernel_heap structure and its block table
-// so dynamic memory allocations can be serviced.
+/*
+ * kheap_init() - Set up the kernel heap and its table.
+ *
+ * The kernel reserves a section of memory for dynamic allocation.
+ * This routine prepares the block table located at
+ * VANA_HEAP_TABLE_ADDRESS and calls heap_create() to clear all entries.
+ */
 void kheap_init()
 {
     int total_table_entries = VANA_HEAP_SIZE_BYTES / VANA_HEAP_BLOCK_SIZE;
@@ -24,13 +29,17 @@ void kheap_init()
 
 }
 
-// Allocate memory from the kernel heap
+/*
+ * kmalloc() - Kernel facing wrapper around heap_malloc().
+ */
 void* kmalloc(size_t size)
 {
     return heap_malloc(&kernel_heap, size);
 }
 
-// Allocate zero-initialized memory from the kernel heap
+/*
+ * kzalloc() - Allocate and zero a memory region from the kernel heap.
+ */
 void* kzalloc(size_t size)
 {
     void* ptr = kmalloc(size);
@@ -41,7 +50,9 @@ void* kzalloc(size_t size)
     return ptr;
 }
 
-// Free a block previously allocated with kmalloc/kzalloc
+/*
+ * kfree() - Return memory to the kernel heap.
+ */
 void kfree(void* ptr)
 {
     heap_free(&kernel_heap, ptr);

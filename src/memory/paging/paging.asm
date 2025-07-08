@@ -5,6 +5,7 @@ section .asm
 global paging_load_directory
 global enable_paging
 
+; paging_load_directory - set CR3 to the provided page directory
 paging_load_directory:
     push ebp
     mov ebp, esp
@@ -13,6 +14,7 @@ paging_load_directory:
     pop ebp
     ret
 
+; enable_paging - turn on paging by setting the PG bit in CR0
 enable_paging:
     push ebp
     mov ebp, esp

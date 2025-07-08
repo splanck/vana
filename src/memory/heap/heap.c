@@ -7,20 +7,36 @@
 /*
  * Block based heap allocator used by both the kernel and user processes.
  *
- * The heap is backed by a contiguous range of memory divided into fixed
- * size blocks (`VANA_HEAP_BLOCK_SIZE`). A table entry accompanies each block
- * describing whether the block is free, taken, the first in a run and/or has
- * a successor. Allocation requests are aligned to the block size and fulfilled
- * by finding a sequence of free blocks in the table.
+ * The heap is backed by a contiguous range of memory divided into fixed size
+ * blocks (`VANA_HEAP_BLOCK_SIZE`).  A parallel table mirrors this layout and
+ * stores a byte per block describing its state:
+ *
+ *   +--------+--------+--------+         heap memory
+ *   | block0 | block1 | block2 | ...
+ *   +--------+--------+--------+
+ *     |        |        |
+ *     v        v        v
+ *   +----+   +----+   +----+            block table
+ *   |entry|  |entry|  |entry|  ...
+ *   +----+   +----+   +----+
+ *
+ * Flags within each entry indicate whether the block is free or taken,
+ * whether it is the first block in an allocated run and whether more blocks
+ * follow.  Allocation requests are aligned to the block size and satisfied by
+ * locating a chain of free entries.
  *
  * The routines below provide creation and validation helpers along with the
- * basic malloc/free interface implemented on top of this block table.
+ * basic malloc/free interface implemented on top of this table.
  */
 
 /*
- * Ensure the provided heap table correctly describes the memory range
- * starting at `ptr` and ending at `end`. The size of the range must
- * equal `table->total` blocks.
+ * heap_validate_table() - Sanity check that a heap table matches the memory
+ *                         span it describes.
+ *
+ * The heap itself occupies [ptr, end) while the table should contain one
+ * entry per block within that range.  This function verifies the caller
+ * supplied table is consistent so later allocations do not walk off the end
+ * of either array.
  */
 static int heap_validate_table(void* ptr, void* end, struct heap_table* table)
 {
@@ -39,7 +55,10 @@ out:
 }
 
 /*
- * Verify that `ptr` is aligned to the heap block size boundary.
+ * heap_validate_alignment() - Check pointer alignment against the block size.
+ *
+ * The allocator requires both the start and end of the heap to fall on
+ * a block boundary so that block <-> address translations remain exact.
  */
 static bool heap_validate_alignment(void* ptr)
 {
@@ -47,9 +66,17 @@ static bool heap_validate_alignment(void* ptr)
 }
 
 /*
- * Initialise a heap structure over the memory range [ptr, end). The
- * supplied table must contain one entry per block within this range.
- * All entries are cleared so the heap starts empty.
+ * heap_create() - Initialise a heap over [ptr, end).
+ *
+ * The function wires up the heap structure with the caller provided table
+ * and performs a number of checks:
+ *   1) `ptr` and `end` must be aligned so blocks begin on clean
+ *      boundaries.  This prevents partial block usage.
+ *   2) The table must be large enough to describe every block in the
+ *      memory range.  heap_validate_table() verifies this.
+ *
+ * Once validated, all table entries are marked free so allocations can
+ * start from a known state.
  */
 int heap_create(struct heap* heap, void* ptr, void* end, struct heap_table* table)
 {
@@ -79,7 +106,11 @@ out:
 }
 
 /*
- * Round `val` up to the next multiple of the heap block size.
+ * heap_align_value_to_upper() - Round up to the next block boundary.
+ *
+ * All allocations occur in whole blocks.  This helper converts a byte
+ * size into the smallest multiple of VANA_HEAP_BLOCK_SIZE which keeps the
+ * heap table and memory blocks perfectly in sync.
  */
 static uint32_t heap_align_value_to_upper(uint32_t val)
 {
@@ -94,7 +125,11 @@ static uint32_t heap_align_value_to_upper(uint32_t val)
 }
 
 /*
- * Mask off flag bits and return the raw entry type for a block table entry.
+ * heap_get_entry_type() - Strip flag bits from a table entry.
+ *
+ * The upper bits of an entry record metadata such as "has next" and
+ * "is first".  By masking them off we are left with just the free/taken
+ * state which simplifies comparisons.
  */
 static int heap_get_entry_type(HEAP_BLOCK_TABLE_ENTRY entry)
 {
@@ -102,8 +137,12 @@ static int heap_get_entry_type(HEAP_BLOCK_TABLE_ENTRY entry)
 }
 
 /*
- * Scan the heap table for `total_blocks` consecutive free entries.
- * Returns the starting block index or -ENOMEM if none can be found.
+ * heap_get_start_block() - Locate a run of free blocks.
+ *
+ * The allocator linearly scans the block table looking for
+ * `total_blocks` consecutive free entries.  When a used entry is
+ * encountered the current run length resets.  The first index of a
+ * successful run is returned or -ENOMEM when no space remains.
  */
 int heap_get_start_block(struct heap* heap, uint32_t total_blocks)
 {
@@ -142,7 +181,10 @@ int heap_get_start_block(struct heap* heap, uint32_t total_blocks)
 }
 
 /*
- * Convert a block index into an absolute memory address within the heap.
+ * heap_block_to_address() - Convert a table index to a heap pointer.
+ *
+ * The heap memory is contiguous so the address of block N is simply:
+ *   start_address + (N * block_size)
  */
 void* heap_block_to_address(struct heap* heap, int block)
 {
@@ -150,9 +192,13 @@ void* heap_block_to_address(struct heap* heap, int block)
 }
 
 /*
- * Mark `total_blocks` entries starting at `start_block` as taken in the
- * heap table. The first entry is flagged with HEAP_BLOCK_IS_FIRST and all
- * but the last entry set HEAP_BLOCK_HAS_NEXT so freeing can walk the chain.
+ * heap_mark_blocks_taken() - Update the table to mark a range as used.
+ *
+ * The allocation is represented as a chain of entries in the table:
+ *   [FIRST | HAS_NEXT] -> [TAKEN | HAS_NEXT] -> ... -> [TAKEN]
+ * Each entry after the first clears the FIRST flag so freeing can
+ * identify the start of a region.  All but the last set HAS_NEXT to form
+ * a linked list-like structure.
  */
 void heap_mark_blocks_taken(struct heap* heap, int start_block, int total_blocks)
 {
@@ -176,8 +222,11 @@ void heap_mark_blocks_taken(struct heap* heap, int start_block, int total_blocks
 }
 
 /*
- * Allocate `total_blocks` consecutive blocks and return their starting
- * address. If a suitable run cannot be found `NULL` is returned.
+ * heap_malloc_blocks() - Reserve a number of contiguous blocks.
+ *
+ * After searching for a suitable run via heap_get_start_block(), each
+ * block is marked as taken so subsequent allocations will not reuse it.
+ * The caller receives a pointer to the first byte of the run.
  */
 void* heap_malloc_blocks(struct heap* heap, uint32_t total_blocks)
 {
@@ -199,9 +248,12 @@ out:
 }
 
 /*
- * Clear table entries starting at `starting_block` until a block without the
- * HEAP_BLOCK_HAS_NEXT flag is encountered. This effectively frees a previously
- * allocated run of blocks.
+ * heap_mark_blocks_free() - Release an allocated block chain.
+ *
+ * Starting from `starting_block` the function walks forward clearing entries
+ * until one is found without the HAS_NEXT flag.  This mirrors the chain set
+ * up by heap_mark_blocks_taken() and ensures the entire region becomes
+ * available again.
  */
 void heap_mark_blocks_free(struct heap* heap, int starting_block)
 {
@@ -218,7 +270,11 @@ void heap_mark_blocks_free(struct heap* heap, int starting_block)
 }
 
 /*
- * Translate a heap address back into its corresponding block index.
+ * heap_address_to_block() - Convert a pointer into a table index.
+ *
+ * Useful when freeing memory: given a pointer into the heap the function
+ * determines which entry in the table owns it by subtracting the heap
+ * start and dividing by the block size.
  */
 int heap_address_to_block(struct heap* heap, void* address)
 {
@@ -226,8 +282,11 @@ int heap_address_to_block(struct heap* heap, void* address)
 }
 
 /*
- * Public malloc entry point. The request size is aligned up to a block
- * boundary and the required number of blocks are allocated.
+ * heap_malloc() - Allocate a number of bytes from the heap.
+ *
+ * The requested size is rounded up so that allocations always start and end
+ * on block boundaries.  After alignment the allocator simply reserves the
+ * required number of blocks.
  */
 void* heap_malloc(struct heap* heap, size_t size)
 {
@@ -237,9 +296,10 @@ void* heap_malloc(struct heap* heap, size_t size)
 }
 
 /*
- * Free a block of memory previously returned by heap_malloc(). The starting
- * table entry is located via the address and then cleared along with any
- * chained entries.
+ * heap_free() - Release memory obtained from heap_malloc().
+ *
+ * The pointer is translated back into a block index and the chain of
+ * entries is cleared via heap_mark_blocks_free().
  */
 void heap_free(struct heap* heap, void* ptr)
 {
