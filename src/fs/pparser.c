@@ -1,9 +1,15 @@
 /*
- * Path parser for FAT16 formatted paths.
+ * Very small path parser used by the FAT16 driver.
  *
- * Paths use the form "<drive>:/dir/file". The parser splits the
- * string into a drive number and a linked list of components so
- * the FAT16 driver can traverse directories.
+ * Paths must be absolute and follow the ``<drive>:/dir/file`` pattern.
+ * ``pathparser_parse()`` breaks the string into a ``struct path_root`` which
+ * contains the drive number and a linked list of ``path_part`` components. The
+ * filesystem then iterates over this list to walk directories one part at a
+ * time.
+ *
+ * Only digits 0-9 are accepted for the drive number and no handling for ".."
+ * or redundant slashes is provided.  This matches the current FAT16
+ * implementation which assumes a single drive and simple 8.3 style names.
  */
 #include "pparser.h"
 #include "config.h"
@@ -126,7 +132,9 @@ struct path_part* pathparser_parse_path_part(struct path_part* last_part, const 
 }
 
 /*
- * Frees a path_root and all linked path_part structures.
+ * Free a parsed path structure returned by ``pathparser_parse``.
+ *
+ * @param root  The root of the path list to free. Passing NULL is safe.
  */
 void pathparser_free(struct path_root* root)
 {
@@ -143,9 +151,12 @@ void pathparser_free(struct path_root* root)
 }
 
 /*
- * Main entry that parses a full path string.
- * On success returns a newly allocated path_root containing all path parts.
- * current_directory_path is unused.
+ * Parse an absolute path into its components.
+ *
+ * @param path                   NUL terminated path string ``<drive>:/...``.
+ * @param current_directory_path Unused placeholder for future relative paths.
+ * @return                       Newly allocated ``struct path_root`` or NULL on
+ *                               failure. Use ``pathparser_free`` when done.
  */
 struct path_root* pathparser_parse(const char* path, const char* current_directory_path)
 {
