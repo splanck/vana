@@ -16,11 +16,17 @@ void paging_load_directory(uint32_t* directory);
 
 static uint32_t* current_directory = 0;
 /**
- * Allocate a new paging_4gb_chunk with identity mapped pages.
- * Each of the 1024 directory entries points to its own page table
- * covering 4MB so the entire 4GiB address space is mapped.
- * @param flags  Attributes for every page such as writable/present.
- * @return       Pointer to the newly allocated chunk.
+ * paging_new_4gb() - Create an identity mapped paging directory.
+ *
+ * The layout is the classic two level x86 scheme:
+ *
+ *   Directory[1024] --> Table[1024] --> 4KiB page
+ *             |                          (physical)
+ *             +--> Table[1024] --> ...
+ *
+ * Each directory entry maps a 4MB region.  By setting up 1024 of them the
+ * full 4GiB address space is identity mapped.  The supplied @flags specify
+ * attributes for every page such as PRESENT or WRITEABLE.
  */
 
 struct paging_4gb_chunk* paging_new_4gb(uint8_t flags)
@@ -43,12 +49,24 @@ struct paging_4gb_chunk* paging_new_4gb(uint8_t flags)
     return chunk_4gb;
 }
 
+/*
+ * paging_switch() - Replace the current paging directory.
+ *
+ * Updates CR3 via paging_load_directory() so the CPU begins using the
+ * new directory for address translation.  The pointer is also stored in
+ * current_directory for later queries.
+ */
 void paging_switch(struct paging_4gb_chunk* directory)
 {
     paging_load_directory(directory->directory_entry);
     current_directory = directory->directory_entry;
 }
 
+/*
+ * paging_free_4gb() - Tear down a paging directory created by
+ * paging_new_4gb().  Each page table referenced from the directory is
+ * freed and finally the directory itself.
+ */
 void paging_free_4gb(struct paging_4gb_chunk* chunk)
 {
     for (int i = 0; i < PAGING_TOTAL_ENTRIES_PER_TABLE; i++)
@@ -62,16 +80,27 @@ void paging_free_4gb(struct paging_4gb_chunk* chunk)
     kfree(chunk);
 }
 
+/*
+ * paging_4gb_chunk_get_directory() - Helper to access the raw directory
+ * pointer from a paging chunk structure.
+ */
 uint32_t* paging_4gb_chunk_get_directory(struct paging_4gb_chunk* chunk)
 {
     return chunk->directory_entry;
 }
 
+/*
+ * paging_is_aligned() - Convenience wrapper to check 4KiB alignment.
+ */
 bool paging_is_aligned(void* addr)
 {
     return ((uint32_t)addr % PAGING_PAGE_SIZE) == 0;
 }
 
+/*
+ * paging_get_indexes() - Split a virtual address into directory and table
+ * indexes.  The address must be aligned so page offsets are zero.
+ */
 static int paging_get_indexes(void* virtual_address, uint32_t* directory_index_out, uint32_t* table_index_out)
 {
     int res = 0;
@@ -87,6 +116,9 @@ out:
     return res;
 }
 
+/*
+ * paging_align_address() - Round an address up to the next page boundary.
+ */
 void* paging_align_address(void* ptr)
 {
     if ((uint32_t)ptr % PAGING_PAGE_SIZE)
@@ -97,6 +129,11 @@ void* paging_align_address(void* ptr)
     return ptr;
 }
 
+/*
+ * paging_align_to_lower_page() - Truncate an address down to the nearest
+ * page boundary.  Used when translating non aligned virtual addresses back
+ * to physical ones.
+ */
 void* paging_align_to_lower_page(void* addr)
 {
     uint32_t _addr = (uint32_t) addr;
@@ -113,6 +150,13 @@ void* paging_align_to_lower_page(void* addr)
  * @param flags      Entry flags combined with the physical frame.
  * @return           0 on success or negative on alignment error.
  */
+/*
+ * paging_map() - Map a single 4KiB page.
+ *
+ * Both virtual and physical addresses must already be aligned.  The
+ * function simply composes the page table entry with the provided flags
+ * and updates the directory using paging_set().
+ */
 int paging_map(struct paging_4gb_chunk* directory, void* virt, void* phys, int flags)
 {
     if (((unsigned int)virt % PAGING_PAGE_SIZE) || ((unsigned int) phys % PAGING_PAGE_SIZE))
@@ -123,6 +167,9 @@ int paging_map(struct paging_4gb_chunk* directory, void* virt, void* phys, int f
     return paging_set(directory->directory_entry, virt, (uint32_t) phys | flags);
 }
 
+/*
+ * paging_map_range() - Map several sequential pages.
+ */
 int paging_map_range(struct paging_4gb_chunk* directory, void* virt, void* phys, int count, int flags)
 {
     int res = 0;
@@ -138,6 +185,10 @@ int paging_map_range(struct paging_4gb_chunk* directory, void* virt, void* phys,
     return res;
 }
 
+/*
+ * paging_map_to() - Map a range given explicit start and end physical
+ * addresses.  All three addresses must be page aligned.
+ */
 int paging_map_to(struct paging_4gb_chunk *directory, void *virt, void *phys, void *phys_end, int flags)
 {
     int res = 0;
@@ -170,6 +221,14 @@ out:
     return res;
 }
 
+/*
+ * paging_set() - Write a raw value into the page tables.
+ *
+ * Used internally after computing the correct indices.  The 0xfffff000 mask
+ * strips flag bits from the directory entry yielding the physical address of
+ * the page table.  Alignment checks ensure the caller passed a page aligned
+ * address so the indexes are valid.
+ */
 int paging_set(uint32_t* directory, void* virt, uint32_t val)
 {
     if (!paging_is_aligned(virt))
@@ -200,6 +259,13 @@ int paging_set(uint32_t* directory, void* virt, uint32_t val)
  * @param virt       Virtual address to translate.
  * @return           The physical address mapped to `virt`.
  */
+/*
+ * paging_get_physical_address() - Translate a virtual address.
+ *
+ * Non aligned addresses are rounded down first and the offset re-added to
+ * the resulting physical page.  The paging_get() helper performs the table
+ * lookup.
+ */
 void* paging_get_physical_address(uint32_t* directory, void* virt)
 {
     void* virt_addr_new = (void*) paging_align_to_lower_page(virt);
@@ -207,6 +273,9 @@ void* paging_get_physical_address(uint32_t* directory, void* virt)
     return (void*)((paging_get(directory, virt_addr_new) & 0xfffff000) + (uint32_t)difference);
 }
 
+/*
+ * paging_get() - Fetch the raw table entry for a virtual address.
+ */
 uint32_t paging_get(uint32_t* directory, void* virt)
 {
     uint32_t directory_index = 0;
