@@ -1,8 +1,17 @@
 /*
- * ATA disk driver using PIO read operations.
- * This module handles low level sector access for the kernel.
- * Only a single drive is supported and higher layers
- * use this interface through the filesystem.
+ * ATA disk driver using Programmed I/O (PIO) operations.
+ *
+ * The primary IDE bus exposes a set of well known ports:
+ *   0x1F0 – data register used to read 16-bit words
+ *   0x1F2 – sector count
+ *   0x1F3 – LBA low byte
+ *   0x1F4 – LBA mid byte
+ *   0x1F5 – LBA high byte
+ *   0x1F6 – drive/head register
+ *   0x1F7 – command/status register
+ *
+ * Only a single drive is supported. Higher layers interact with this
+ * driver via the filesystem which ultimately calls `disk_read_block()`.
  */
 #include "disk.h"
 #include "io/io.h"
@@ -22,24 +31,25 @@ static struct disk disk;
  */
 static int disk_read_sector(int lba, int total, void* buf)
 {
-    outb(0x1F6, (lba >> 24) | 0xE0);
-    outb(0x1F2, total);
-    outb(0x1F3, (unsigned char)(lba & 0xff));
-    outb(0x1F4, (unsigned char)(lba >> 8));
-    outb(0x1F5, (unsigned char)(lba >> 16));
-    outb(0x1F7, 0x20);
+    /* Select the drive and output the 28-bit LBA and sector count. */
+    outb(0x1F6, (lba >> 24) | 0xE0);      // drive/head register
+    outb(0x1F2, total);                   // number of sectors to read
+    outb(0x1F3, (unsigned char)(lba & 0xff));  // LBA low
+    outb(0x1F4, (unsigned char)(lba >> 8));    // LBA mid
+    outb(0x1F5, (unsigned char)(lba >> 16));   // LBA high
+    outb(0x1F7, 0x20);                  // send READ SECTORS command
 
     unsigned short* ptr = (unsigned short*) buf;
     for (int b = 0; b < total; b++)
     {
-        // Wait for the buffer to be ready
+        /* Wait for the drive to assert the Data Request (DRQ) bit. */
         char c = insb(0x1F7);
         while(!(c & 0x08))
         {
             c = insb(0x1F7);
         }
 
-        // Copy from hard disk to memory
+        /* Read one sector (256 words) from the data port. */
         for (int i = 0; i < 256; i++)
         {
             *ptr = insw(0x1F0);
@@ -52,8 +62,8 @@ static int disk_read_sector(int lba, int total, void* buf)
 
 /*
  * Probe for the primary disk and initialise the global descriptor.
- * The filesystem driver is resolved here so later calls can access
- * the disk via disk_get() and disk_read_block().
+ * `fs_resolve()` is invoked to attach a filesystem driver so that later
+ * calls through the VFS can transparently access this device.
  */
 void disk_search_and_init()
 {
@@ -73,8 +83,9 @@ struct disk* disk_get(int index)
 }
 
 /*
- * Public wrapper used by the filesystem layer to read sectors.
- * Validates the disk pointer and forwards to disk_read_sector().
+ * Public wrapper used by the filesystem layer (e.g. FAT16) to read
+ * one or more sectors. The disk pointer is validated before the
+ * request is forwarded to `disk_read_sector()`.
  */
 int disk_read_block(struct disk* idisk, unsigned int lba, int total, void* buf)
 {

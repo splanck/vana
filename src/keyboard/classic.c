@@ -1,10 +1,16 @@
 /*
  * Classic PS/2 keyboard driver.
  *
- * Translates set-1 scancodes to ASCII,
- * tracks shift and caps lock state and
- * feeds characters into the keyboard buffer.
- * The handler is registered on IRQ 1.
+ * A PS/2 keyboard raises **IRQ&nbsp;1** every time a key is pressed or
+ * released.  The controller places a scancode byte on I/O port `0x60`
+ * which this driver reads inside the interrupt handler.  Port `0x64`
+ * is used for command/status operations such as enabling the first PS/2
+ * port.
+ *
+ * Scancodes follow **set&nbsp;1** and are translated to ASCII characters.
+ * The resulting character stream is appended to the kernel keyboard buffer
+ * via `keyboard_push()`.  Higher level code (for example the shell) reads
+ * from this buffer using `keyboard_pop()` when it needs user input.
  */
 
 #include "classic.h"
@@ -63,7 +69,11 @@ int classic_keyboard_init()
     keyboard_set_capslock(&classic_keyboard, KEYBOARD_CAPS_LOCK_OFF);
     keyboard_set_shift(&classic_keyboard, KEYBOARD_SHIFT_OFF);
 
-    /* Enable the first PS/2 port. */
+    /*
+     * Issue a command to the PS/2 controller's command port (0x64)
+     * to enable the first keyboard port.  Without this the controller
+     * would ignore key presses.
+     */
     outb(PS2_PORT, PS2_COMMAND_ENABLE_FIRST_PORT);
     return 0;
 }
@@ -158,8 +168,11 @@ uint8_t classic_keyboard_scancode_to_char(uint8_t scancode)
  */
 void classic_keyboard_handle_interrupt()
 {
-    /* Read the scancode from the controller. A second read acknowledges
-     * the interrupt on some controllers so we discard the value. */
+    /*
+     * Read the scancode from the keyboard data port (0x60).  Some
+     * controllers require a second read to acknowledge the interrupt,
+     * so the value returned by the second read is ignored.
+     */
     uint8_t scancode = insb(KEYBOARD_INPUT_PORT);
     insb(KEYBOARD_INPUT_PORT);
 
@@ -197,5 +210,7 @@ void classic_keyboard_handle_interrupt()
 
 struct keyboard* classic_init()
 {
+    /* Return the driver descriptor so the keyboard subsystem can
+     * register it and access its state fields. */
     return &classic_keyboard;
 }
