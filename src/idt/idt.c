@@ -1,9 +1,10 @@
-/*
- * idt.c - Interrupt Descriptor Table setup and syscall dispatcher.
+/**
+ * @file idt.c
+ * @brief Interrupt Descriptor Table setup and syscall dispatcher.
  *
- * The IDT routes hardware and software interrupts to their handlers.
- * This file builds the table at boot and provides a small API for
- * registering callbacks and system call commands.
+ * The IDT routes hardware and software interrupts to their handlers. This file
+ * builds the table during boot and exposes helper functions for registering
+ * interrupt callbacks and system call commands.
  */
 #include "idt.h"
 #include "gdt/gdt.h"
@@ -29,6 +30,11 @@ static ISR80H_COMMAND isr80h_commands[VANA_MAX_ISR80H_COMMANDS];
 
 static INTERRUPT_CALLBACK_FUNCTION interrupt_callbacks[IDT_TOTAL_DESCRIPTORS];
 
+/**
+ * Dummy handler used when no callback is registered.
+ *
+ * It simply acknowledges the interrupt so the PIC will allow further IRQs.
+ */
 void interrupt_ignore(struct interrupt_frame* frame)
 {
     (void)frame;
@@ -36,6 +42,12 @@ void interrupt_ignore(struct interrupt_frame* frame)
     outb(0x20, 0x20);   // acknowledge master
 }
 
+/**
+ * Default exception handler used for early faults.
+ *
+ * Terminates the current process and schedules the next task. This prevents
+ * faulty user code from crashing the entire system during development.
+ */
 static void idt_handle_exception(struct interrupt_frame* frame)
 {
     (void)frame;
@@ -43,6 +55,13 @@ static void idt_handle_exception(struct interrupt_frame* frame)
     task_next();
 }
 
+/**
+ * Populate a single entry in the IDT.
+ *
+ * @param interrupt_no Vector number to update.
+ * @param address      Pointer to the handler function.
+ * @param type_attr    Gate type and privilege flags.
+ */
 static void idt_set(int interrupt_no, void* address, uint8_t type_attr)
 {
     struct idt_desc* desc = &idt_descriptors[interrupt_no];
@@ -53,10 +72,19 @@ static void idt_set(int interrupt_no, void* address, uint8_t type_attr)
     desc->offset_2 = (uint32_t)address >> 16;
 }
 
+/**
+ * Stub used when an interrupt should be ignored.
+ */
 void no_interrupt_handler()
 {
 }
 
+/**
+ * Central interrupt dispatch routine.
+ *
+ * Looks up a C callback for the incoming vector and acknowledges hardware
+ * interrupts via the PIC. Unhandled vectors trigger a panic for visibility.
+ */
 void interrupt_handler(int interrupt, struct interrupt_frame* frame)
 {
     if (interrupt < IDT_TOTAL_DESCRIPTORS)
@@ -82,10 +110,12 @@ void interrupt_handler(int interrupt, struct interrupt_frame* frame)
     }
 }
 
-/*
+/**
  * Populate the IDT with default handlers and enable it.
- * Vector 0x80 is reserved for user-mode system calls and
- * early exceptions register a simple termination callback.
+ *
+ * Vector 0x80 is reserved for system calls from user mode. The first 32
+ * vectors are mapped to a simple exception handler that terminates the current
+ * task.
  */
 void idt_init()
 {
@@ -118,6 +148,11 @@ void idt_init()
  * Register a C callback for the specified interrupt number.
  * Returns 0 on success or -1 if the vector is invalid.
  */
+/**
+ * Register a C callback for the specified interrupt vector.
+ *
+ * @return 0 on success or -1 if the vector is out of range.
+ */
 int idt_register_interrupt_callback(int interrupt, INTERRUPT_CALLBACK_FUNCTION callback)
 {
     if (interrupt < 0 || interrupt >= IDT_TOTAL_DESCRIPTORS)
@@ -134,6 +169,11 @@ int idt_register_interrupt_callback(int interrupt, INTERRUPT_CALLBACK_FUNCTION c
  */
 
 /* Register a function that implements an isr80h system call. */
+/**
+ * Register a function implementing an isr80h system call.
+ *
+ * Panics if the command id is invalid or already registered.
+ */
 void isr80h_register_command(int command_id, ISR80H_COMMAND command)
 {
     if (command_id < 0 || command_id >= VANA_MAX_ISR80H_COMMANDS)
@@ -153,7 +193,11 @@ void isr80h_register_command(int command_id, ISR80H_COMMAND command)
  * Returns the handler result or NULL for invalid commands.
  */
 
-/* Dispatch a previously registered isr80h command. */
+/**
+ * Dispatch a previously registered isr80h command.
+ *
+ * Returns the handler result or NULL for invalid command ids.
+ */
 void* isr80h_handle_command(int command, struct interrupt_frame* frame)
 {
     void* result = 0;
@@ -180,6 +224,12 @@ void* isr80h_handle_command(int command, struct interrupt_frame* frame)
 /*
  * Main isr80h handler called from assembly.
  * Switches to the kernel page directory and executes the command.
+ */
+/**
+ * Entry point from assembly for INT 0x80 system calls.
+ *
+ * Switches to the kernel page directory, saves the task state and then
+ * dispatches the requested command.
  */
 void* isr80h_handler(int command, struct interrupt_frame* frame)
 {

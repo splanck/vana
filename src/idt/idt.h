@@ -50,13 +50,22 @@ struct interrupt_frame
     uint32_t ss;
 } __attribute__((packed));
 
+/** Set up the IDT and load it into the CPU. */
 void idt_init();
+/** Enable maskable CPU interrupts with the STI instruction. */
 void enable_interrupts();
+/** Disable maskable CPU interrupts with the CLI instruction. */
 void disable_interrupts();
+/** Register a new system call handler for INT 0x80. */
 void isr80h_register_command(int command_id, ISR80H_COMMAND command);
+/** Invoke a previously registered system call handler. */
 void* isr80h_handle_command(int command, struct interrupt_frame* frame);
+/** Assembly entry point wrapper for system calls. */
 void* isr80h_handler(int command, struct interrupt_frame* frame);
-int idt_register_interrupt_callback(int interrupt, INTERRUPT_CALLBACK_FUNCTION interrupt_callback);
+/** Register a callback for a specific interrupt vector. */
+int idt_register_interrupt_callback(int interrupt,
+                                    INTERRUPT_CALLBACK_FUNCTION interrupt_callback);
+/** Simple handler that acknowledges and ignores an interrupt. */
 void interrupt_ignore(struct interrupt_frame* frame);
 
 #endif
