@@ -17,17 +17,27 @@ static struct process* processes[VANA_MAX_PROCESSES] = {};
 
 int process_free_process(struct process* process);
 
-
+/*
+ * Zero a new `struct process`. This helper is used when loading a program
+ * into an empty slot so all fields start in a known state.
+ */
 static void process_init(struct process* process)
 {
     memset(process, 0, sizeof(struct process));
 }
 
+/*
+ * Return the process whose task currently owns the CPU.
+ */
 struct process* process_current()
 {
     return current_process;
 }
 
+/*
+ * Fetch a process structure by its identifier. Returns NULL if the slot is
+ * unused or the identifier is out of range.
+ */
 struct process* process_get(int process_id)
 {
     if (process_id < 0 || process_id >= VANA_MAX_PROCESSES)
@@ -38,12 +48,21 @@ struct process* process_get(int process_id)
     return processes[process_id];
 }
 
+/*
+ * Mark `process` as the one currently scheduled. This affects helper
+ * routines that query `process_current()` but actual context switching is
+ * handled by `task_switch` on the task itself.
+ */
 int process_switch(struct process* process)
 {
     current_process = process;
     return 0;
 }
 
+/*
+ * Helper used by `process_malloc` to locate a free slot in the allocation
+ * table that tracks memory owned by the process.
+ */
 static int process_find_free_allocation_index(struct process* process)
 {
     int res = -ENOMEM;
@@ -59,6 +78,12 @@ static int process_find_free_allocation_index(struct process* process)
     return res;
 }
 
+/*
+ * Allocate `size` bytes on behalf of a process. The kernel heap supplies
+ * the backing memory which is then mapped into the process's address
+ * space. Each allocation is tracked so it can be freed when the process
+ * exits.
+ */
 void* process_malloc(struct process* process, size_t size)
 {
     void* ptr = kzalloc(size);
@@ -91,6 +116,10 @@ out_err:
     return 0;
 }
 
+/*
+ * Check whether a pointer belongs to the given process's allocation list.
+ * This guards against a process attempting to free memory it does not own.
+ */
 static bool process_is_process_pointer(struct process* process, void* ptr)
 {
     for (int i = 0; i < VANA_MAX_PROGRAM_ALLOCATIONS; i++)
@@ -102,6 +131,11 @@ static bool process_is_process_pointer(struct process* process, void* ptr)
     return false;
 }
 
+/*
+ * Remove an allocation record from the process's table. This is called when
+ * memory is freed so that subsequent checks do not report it as still owned
+ * by the process.
+ */
 static void process_allocation_unjoin(struct process* process, void* ptr)
 {
     for (int i = 0; i < VANA_MAX_PROGRAM_ALLOCATIONS; i++)
@@ -114,6 +148,11 @@ static void process_allocation_unjoin(struct process* process, void* ptr)
     }
 }
 
+/*
+ * Look up an allocation by virtual address within a process. Returns the
+ * allocation record or NULL if the address does not correspond to memory
+ * owned by the process.
+ */
 static struct process_allocation* process_get_allocation_by_addr(struct process* process, void* addr)
 {
     for (int i = 0; i < VANA_MAX_PROGRAM_ALLOCATIONS; i++)
@@ -128,6 +167,8 @@ static struct process_allocation* process_get_allocation_by_addr(struct process*
 
 /*
  * Free all heap allocations that a process has made during its lifetime.
+ * This prevents memory leaks when a process exits and ensures no stale
+ * mappings remain in its address space.
  */
 int process_terminate_allocations(struct process* process)
 {
@@ -142,7 +183,10 @@ int process_terminate_allocations(struct process* process)
     return 0;
 }
 
-/* Release memory allocated for a raw binary executable. */
+/*
+ * Release memory allocated for a raw binary executable that was loaded
+ * directly into kernel space.
+ */
 int process_free_binary_data(struct process* process)
 {
     if (process->ptr)
@@ -152,7 +196,11 @@ int process_free_binary_data(struct process* process)
     return 0;
 }
 
-/* Close and discard an ELF file previously loaded for a process. */
+/*
+ * Close and discard an ELF file previously loaded for a process. The ELF
+ * loader allocated this handle and paging mappings, so drop our reference
+ * here.
+ */
 int process_free_elf_data(struct process* process)
 {
     if (process->elf_file)
@@ -182,6 +230,10 @@ int process_free_program_data(struct process* process)
     return res;
 }
 
+/*
+ * Switch to the first available process in the global table. Used when the
+ * current process exits so the scheduler always has something to run.
+ */
 void process_switch_to_any()
 {
     for (int i = 0; i < VANA_MAX_PROCESSES; i++)
@@ -197,6 +249,10 @@ void process_switch_to_any()
     panic("No processes to switch too\n");
 }
 
+/*
+ * Remove a process from the global process table. If it was the currently
+ * running process the scheduler switches to another valid entry.
+ */
 static void process_unlink(struct process* process)
 {
     processes[process->id] = 0x00;
@@ -208,8 +264,9 @@ static void process_unlink(struct process* process)
 }
 
 /*
- * Release all resources owned by a process including its allocations,
- * program image, stack and task structure.
+ * Release all resources owned by a process including heap allocations,
+ * program image, stack and task structure. Called when a process exits to
+ * ensure all memory mappings are removed and no kernel memory leaks occur.
  */
 int process_free_process(struct process* process)
 {
@@ -236,7 +293,10 @@ out:
     return res;
 }
 
-/* Unlink a process and free it so another task can run. */
+/*
+ * Unlink a process and free it so another task can run. This is the public
+ * entry point used by the syscall layer when a program calls `exit`.
+ */
 int process_terminate(struct process* process)
 {
     // Unlink the process from the process array.
@@ -253,12 +313,20 @@ out:
     return res;
 }
 
+/*
+ * Retrieve the argument vector for a running process. Used by the user
+ * space C library to implement `main(int argc, char** argv)`.
+ */
 void process_get_arguments(struct process* process, int* argc, char*** argv)
 {
     *argc = process->arguments.argc;
     *argv = process->arguments.argv;
 }
 
+/*
+ * Count the number of arguments in a linked list of `command_argument`
+ * structures.
+ */
 int process_count_command_arguments(struct command_argument* root_argument)
 {
     struct command_argument* current = root_argument;
@@ -273,6 +341,10 @@ int process_count_command_arguments(struct command_argument* root_argument)
 }
 
 
+/*
+ * Copy a linked list of command arguments into the process's address space
+ * so the user program can access them on start-up.
+ */
 int process_inject_arguments(struct process* process, struct command_argument* root_argument)
 {
     int res = 0;
@@ -313,6 +385,11 @@ int process_inject_arguments(struct process* process, struct command_argument* r
 out:
     return res;
 }
+/*
+ * Free memory previously allocated with `process_malloc`. The mapping is
+ * removed from the task's page directory and the allocation record is
+ * cleared.
+ */
 void process_free(struct process* process, void* ptr)
 {
     // Unlink the pages from the process for the given address
@@ -337,8 +414,9 @@ void process_free(struct process* process, void* ptr)
 }
 
 /*
- * Load a raw binary executable from disk into kernel memory and record
- * its location and size in the process structure.
+ * Load a raw binary executable from disk into kernel memory. The program
+ * image is stored in `process->ptr` so it can later be mapped into the
+ * task's address space.
  */
 static int process_load_binary(const char* filename, struct process* process)
 {
@@ -389,6 +467,8 @@ out:
 
 /*
  * Parse an ELF executable and attach the resulting handle to the process.
+ * The loader validates the file and keeps the program headers so segments
+ * can be mapped with correct permissions.
  */
 static int process_load_elf(const char* filename, struct process* process)
 {
@@ -405,7 +485,10 @@ static int process_load_elf(const char* filename, struct process* process)
 out:
     return res;
 }
-/* Try loading an ELF file first and fall back to a raw binary if needed. */
+/*
+ * Try loading an ELF file first and fall back to a raw binary if needed.
+ * This allows the same API to support both executable formats.
+ */
 static int process_load_data(const char* filename, struct process* process)
 {
     int res = 0;
@@ -418,7 +501,10 @@ static int process_load_data(const char* filename, struct process* process)
     return res;
 }
 
-/* Map a loaded raw binary into the process's virtual address space. */
+/*
+ * Map the raw binary image into user space at the standard program load
+ * address. The memory was already allocated by `process_load_binary`.
+ */
 int process_map_binary(struct process* process)
 {
     int res = 0;
@@ -427,6 +513,11 @@ int process_map_binary(struct process* process)
 }
 
 /* Map all loadable ELF segments for the process. */
+/*
+ * Map all loadable ELF segments for the process using the information
+ * parsed by the loader. Each program header is mapped with permissions
+ * derived from its flags so read-only sections remain protected.
+ */
 static int process_map_elf(struct process* process)
 {
     int res = 0;
@@ -485,6 +576,7 @@ out:
     return res;
 }
 
+/* Return the index of an unused entry in the global process array. */
 int process_get_free_slot()
 {
     for (int i = 0; i < VANA_MAX_PROCESSES; i++)
@@ -496,7 +588,10 @@ int process_get_free_slot()
     return -EISTKN;
 }
 
-/* Allocate a free slot and load a program into it. */
+/*
+ * High-level helper used by the shell to load a program. It simply
+ * allocates a free slot and forwards to `process_load_for_slot`.
+ */
 int process_load(const char* filename, struct process** process)
 {
     int res = 0;
@@ -512,7 +607,10 @@ out:
     return res;
 }
 
-/* Convenience wrapper that loads a program and immediately switches to it. */
+/*
+ * Convenience wrapper that loads a program and immediately switches to it.
+ * Used by the shell when launching a new foreground task.
+ */
 int process_load_switch(const char* filename, struct process** process)
 {
     int res = process_load(filename, process);
@@ -526,7 +624,10 @@ int process_load_switch(const char* filename, struct process** process)
 
 /*
  * Load a program into a specific slot within the global process table.
- * This sets up the process structure, creates its task and maps memory.
+ * This function drives the loader: it allocates the `struct process`,
+ * loads the executable (ELF or raw binary) and then creates the initial
+ * task with its own page directory. Finally `process_map_memory` is called
+ * to map the program image and stack so the scheduler can run it.
  */
 int process_load_for_slot(const char* filename, struct process** process, int process_slot)
 {
