@@ -29,6 +29,7 @@ The following tasks give a starting point for exploring the current code and the
    - Build an `x86_64-elf` GCC and Binutils toolchain similar to the existing 32‑bit one.
    - Update the `build-toolchain.sh` script so `TARGET=x86_64-elf` and verify `x86_64-elf-gcc` is on the `PATH`.
    - Adjust the `Makefile` to prefer the 64‑bit compiler and switch assembly sources to `nasm -f elf64`.
+   - Link the kernel with `linker64.ld` using `x86_64-elf-gcc` and `x86_64-elf-ld` (see the example Makefile in `64bitexample.tar.gz`).
 2. **Bootloader**
    - Replace the 32‑bit boot code with a new loader that enables long mode.
    - Borrow the initialization sequence from the example kernel.
@@ -177,6 +178,28 @@ The checklist below summarises concrete edits required across the source tree. I
 is intentionally verbose so that each component can be migrated and verified in
 isolation.  Follow the order roughly from low level boot code up to userland.
 
+### Assembly Files to Rewrite
+The following assembly sources require complete 64‑bit rewrites. Each has an
+equivalent implementation in `64bitexample.tar.gz` that can be referenced when
+performing the conversion.
+
+* **src/boot/boot.asm** – rebuild with `nasm -f elf64` and perform the long
+  mode transition using 64‑bit registers.
+* **src/kernel.asm** – convert the entry stub to use `rax`, `rbx` and other
+  64‑bit registers before jumping to `kernel_main`.
+* **src/io/io.asm** – update port I/O helpers to use `rax`/`rdx` and the
+  64‑bit instruction forms.
+* **src/memory/paging/paging.asm** – replace 32‑bit paging code with 4‑level
+  page table operations and 64‑bit `cr3` loads.
+* **src/task/task.asm** – save and restore `r8–r15` and follow the System V
+  ABI for context switches.
+* **src/task/tss.asm** – implement the long‑mode TSS layout and load it with
+  `ltr`.
+* **src/gdt/gdt.asm** – emit 64‑bit descriptors compatible with long mode and
+  load them via `lgdt`.
+* **src/idt/idt.asm** – create 16‑byte IDT gates and set IST indices for each
+  handler.
+
 ### Boot Code
 
 * **src/boot/boot.asm** – remove the 32‑bit real mode loader. Create
@@ -257,6 +280,18 @@ isolation.  Follow the order roughly from low level boot code up to userland.
 - Adjust the linker script to place the kernel at `KERNEL_VMA`.
 - Ensure all assembly files specify `[BITS 64]` and are assembled as ELF64.
 :::
+
+### C Source Updates by Directory
+Refer to the modules inside `64bitexample.tar.gz` for working 64‑bit code.
+
+* **src/gdt** – update descriptors and loader routines for 64‑bit bases.
+* **src/idt** – create 16‑byte gate structures and fill 64‑bit handler addresses.
+* **src/memory/paging** – provide PML4/PDP table creation helpers and rewrite paging initialization.
+* **src/task** – store 64‑bit register state and update scheduler logic.
+* **src/isr80h** – fetch syscall parameters from `rdi` onward following the System V ABI.
+* **src/loader** – extend the ELF loader to parse 64‑bit headers and program segments.
+* **src/kernel.c** – build 64‑bit page tables, load the new GDT/IDT and start the first task.
+* **src/config.h** – define 64‑bit addresses, segment selectors and stack sizes.
 
 ### Userland and Libraries
 
