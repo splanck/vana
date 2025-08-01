@@ -171,3 +171,101 @@ Frequent testing avoids large integration problems.
 - Document common failure points and how to inspect page tables and register state in `gdb`.
 :::
 
+## File‑by‑File Migration Guide
+
+The checklist below summarises concrete edits required across the source tree. It
+is intentionally verbose so that each component can be migrated and verified in
+isolation.  Follow the order roughly from low level boot code up to userland.
+
+### Boot Code
+
+* **src/boot/boot.asm** – remove the 32‑bit real mode loader. Create
+  `src/boot64/boot.asm` based on the example. It must:
+  - Enable A20, build page tables and switch to long mode.
+  - Load `kernel64.elf` at 0x100000 and jump to its 64‑bit entry label.
+* **src/kernel.asm** – rewrite as a 64‑bit stub called from the bootloader. Set
+  up segment registers and the stack then call `kernel_main`.
+
+:::start-task{title="Convert boot code"}
+- Stub out the existing 32‑bit assembly in `src/boot/boot.asm`.
+- Add `boot64/boot.asm` and update `Makefile` rules to assemble with
+  `nasm -f elf64`.
+- Provide a 64‑bit version of `kernel.asm` that matches the new entry flow.
+:::
+
+### Descriptor Tables
+
+* **src/gdt/gdt.c** and **src/gdt/gdt.h** – extend descriptor structures to hold
+  64‑bit base addresses. Update `gdt_structured_to_gdt` and helper macros.
+* **src/gdt/gdt.asm** – emit long‑mode compatible descriptor entries and load
+  the table with `lgdt`.
+* **src/task/tss.asm** and **src/task/tss.h** – define a 64‑bit TSS with
+  separate stacks for interrupts.
+* **src/idt/idt.c** and **src/idt/idt.asm** – implement 16‑byte IDT gates and
+  configure the IST fields for critical handlers.
+
+:::start-task{title="Upgrade descriptor tables"}
+- Modify GDT structures to use `uint64_t` bases and limits.
+- Generate 64‑bit IDT descriptors in `idt.asm` and adapt `idt_load`.
+- Add a long‑mode TSS definition and load it in `gdt.c` during
+  initialization.
+:::
+
+### Paging and Memory
+
+* **src/memory/paging/paging.*** – replace the 32‑bit directory logic with
+  routines for PML4, PDPT, PD and PT creation.
+* **src/memory/heap/kheap.c** – adjust pointer types to `uintptr_t` and confirm
+  allocations work above the 4GiB boundary.
+* **src/memory/memory.c** – review `memset`, `memcpy` and `memcmp` for
+  size‑t/ptr differences when compiled in 64‑bit mode.
+
+:::start-task{title="Implement new paging"}
+- Add `paging64.c`/`paging64.h` and migrate kernel setup in `kernel.c` to use
+  these helpers.
+- Ensure the higher half mapping is established before enabling paging.
+- Update heap initialisation to allocate from the new virtual addresses.
+:::
+
+### Task Switching and Syscalls
+
+* **src/task/task.asm** – rewrite push/pop logic for the System V ABI. Include
+  registers `r8–r15` and expand the trap frame structure.
+* **src/task/task.c** and **src/task/process.c** – store 64‑bit `rip` and
+  `rsp` values in the `struct task` and `struct process` records.
+* **src/isr80h/isr80h.c** – change the dispatcher to read parameters from the
+  `rdi`, `rsi`, `rdx`, `rcx`, `r8` and `r9` registers.
+
+:::start-task{title="Refactor context switch"}
+- Expand register save areas in `task.h` to include 64‑bit registers.
+- Update assembly stubs in `task.asm` for the new stack frame layout.
+- Implement `syscall`/`sysret` entry points and adapt userland wrappers.
+:::
+
+### Kernel Core
+
+* **src/config.h** – update selectors, virtual addresses and stack sizes for
+  64‑bit. Define `KERNEL_VMA` (e.g. `0xFFFFFFFF80000000`).
+* **src/kernel.c** – allocate the new paging structures and set up the GDT/IDT
+  before entering the scheduler.
+* **src/io/io.asm** and other port I/O helpers – confirm all instructions use
+  the 64‑bit register forms.
+
+:::start-task{title="Update kernel core"}
+- Search all `.c` files for `uint32_t` and convert pointers to `uint64_t` or
+  `uintptr_t`.
+- Adjust the linker script to place the kernel at `KERNEL_VMA`.
+- Ensure all assembly files specify `[BITS 64]` and are assembled as ELF64.
+:::
+
+### Userland and Libraries
+
+* **example_libc** and **programs/** – rebuild with `x86_64-elf-gcc`. Update
+  inline assembly in the libc to use the new syscall conventions.
+
+:::start-task{title="Finalize userland"}
+- Replace any 32‑bit specific assembly in `example_libc` with 64‑bit
+  equivalents.
+- Recompile the shell and test utilities and run them under QEMU.
+:::
+
