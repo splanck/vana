@@ -28,5 +28,6 @@ Below is a table of all available topics.
 | [scheduler.md](scheduler.md) | Task Scheduler |
 | [elf_loading.md](elf_loading.md) | ELF Loader and Paging Setup |
 | [files.md](files.md) | Source File Overview |
+| [64bit.md](64bit.md) | 64-bit Porting Plan |
 
 For a high level introduction see the [project README](../README.md).
