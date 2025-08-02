@@ -95,7 +95,8 @@ Long mode requires four levels of page tables. The existing paging code only han
 * Map the kernel to a higher half address (e.g. `0xFFFFFFFF80000000`) while keeping an identity map for early boot.
 
 :::start-task{title="Add 64-bit page table support"}
-- Add `paging64.c` and `paging64.h` implementing PML4 creation and basic mapping APIs.
+- Add `paging64.c` and `paging64.h` to build PML4, PDPT, PD and PT tables with
+  64-bit flags such as `NX`, `RW` and `US`.
 - Replace uses of the 32‑bit paging code in the kernel initialization path.
 - Verify virtual addresses resolve correctly under QEMU.
 :::
@@ -206,8 +207,9 @@ performing the conversion.
   `src/boot64/boot.asm` based on the example. It must:
   - Enable A20, build page tables and switch to long mode.
   - Load `kernel64.elf` at 0x100000 and jump to its 64‑bit entry label.
-* **src/kernel.asm** – rewrite as a 64‑bit stub called from the bootloader. Set
-  up segment registers and the stack then call `kernel_main`.
+* **src/kernel.asm** – rewrite as a 64‑bit stub called from the bootloader. It
+  sets up segment registers and a stack in the higher half (e.g.
+  `0xFFFFFFFF80000000`) before jumping to `kernel_main`.
 
 :::start-task{title="Convert boot code"}
 - Stub out the existing 32‑bit assembly in `src/boot/boot.asm`.
@@ -215,6 +217,15 @@ performing the conversion.
   `nasm -f elf64`.
 - Provide a 64‑bit version of `kernel.asm` that matches the new entry flow.
 :::
+
+#### New boot64 stage
+`src/boot64/boot.asm` forms a second stage executed after the initial boot sector. It performs basic real-mode setup, builds temporary page tables and enables long mode. The steps include:
+1. Loading the kernel to `0x100000` while still in real mode.
+2. Creating a PML4, PDPT, PD and PT used only during the transition.
+3. Setting `EFER.LME`, loading the PML4 into `CR3` and enabling paging.
+4. Jumping to the `kernel64_entry` symbol in long mode.
+
+This stage prepares the processor and hands control to the 64-bit kernel stub.
 
 ### Descriptor Tables
 
@@ -245,7 +256,8 @@ performing the conversion.
 
 :::start-task{title="Implement new paging"}
 - Add `paging64.c`/`paging64.h` and migrate kernel setup in `kernel.c` to use
-  these helpers.
+  these helpers for constructing PML4, PDPT, PD and PT entries with the proper
+  execute-disable and user permissions.
 - Ensure the higher half mapping is established before enabling paging.
 - Update heap initialisation to allocate from the new virtual addresses.
 :::
@@ -269,8 +281,8 @@ performing the conversion.
 
 * **src/config.h** – update selectors, virtual addresses and stack sizes for
   64‑bit. Define `KERNEL_VMA` (e.g. `0xFFFFFFFF80000000`).
-* **src/kernel.c** – allocate the new paging structures and set up the GDT/IDT
-  before entering the scheduler.
+* **src/kernel.c** – allocate the new paging structures, load the kernel at
+  `KERNEL_VMA` and set up the GDT/IDT before entering the scheduler.
 * **src/io/io.asm** and other port I/O helpers – confirm all instructions use
   the 64‑bit register forms.
 
