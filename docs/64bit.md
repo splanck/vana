@@ -229,20 +229,23 @@ This stage prepares the processor and hands control to the 64-bit kernel stub.
 
 ### Descriptor Tables
 
-* **src/gdt/gdt.c** and **src/gdt/gdt.h** – extend descriptor structures to hold
-  64‑bit base addresses. Update `gdt_structured_to_gdt` and helper macros.
+* **src/gdt/gdt.h** – change `struct gdt` and `struct gdt_structured` to store
+  64‑bit base addresses.
+* **src/gdt/gdt.c** – update `gdt_structured_to_gdt` to split a 64‑bit base into
+  low, mid and high components so descriptors encode the full address.
 * **src/gdt/gdt.asm** – emit long‑mode compatible descriptor entries and load
   the table with `lgdt`.
 * **src/task/tss.asm** and **src/task/tss.h** – define a 64‑bit TSS with
   separate stacks for interrupts.
-* **src/idt/idt.c** and **src/idt/idt.asm** – implement 16‑byte IDT gates and
-  configure the IST fields for critical handlers.
+* **src/idt/idt.c** and **src/idt/idt.asm** – rewrite IDT setup for 16‑byte gate
+  descriptors and configure IST pointers in the TSS.
 
 :::start-task{title="Upgrade descriptor tables"}
 - Modify GDT structures to use `uint64_t` bases and limits.
-- Generate 64‑bit IDT descriptors in `idt.asm` and adapt `idt_load`.
-- Add a long‑mode TSS definition and load it in `gdt.c` during
-  initialization.
+- Teach `gdt_structured_to_gdt` and `gdt.asm` to produce 64‑bit descriptors.
+- Generate 16‑byte IDT descriptors in `idt.c`/`idt.asm` and wire up IST
+  indices.
+- Add a long‑mode TSS definition and load it in `gdt.c` during initialization.
 :::
 
 ### Paging and Memory
@@ -266,15 +269,22 @@ This stage prepares the processor and hands control to the 64-bit kernel stub.
 
 * **src/task/task.asm** – rewrite push/pop logic for the System V ABI. Include
   registers `r8–r15` and expand the trap frame structure.
+* **src/task/tss.asm** – implement the 64‑bit TSS layout and load kernel and
+  user stack pointers for `syscall` transitions.
 * **src/task/task.c** and **src/task/process.c** – store 64‑bit `rip` and
   `rsp` values in the `struct task` and `struct process` records.
+* **src/isr80h** – migrate syscall entry and exit to the `syscall`/`sysret`
+  instructions and update transition code accordingly.
 * **src/isr80h/isr80h.c** – change the dispatcher to read parameters from the
   `rdi`, `rsi`, `rdx`, `rcx`, `r8` and `r9` registers.
 
 :::start-task{title="Refactor context switch"}
-- Expand register save areas in `task.h` to include 64‑bit registers.
-- Update assembly stubs in `task.asm` for the new stack frame layout.
-- Implement `syscall`/`sysret` entry points and adapt userland wrappers.
+- Expand register save areas in `task.h` and update `task.c` to manage 64‑bit
+  stacks.
+- Update assembly stubs in `task.asm` and `tss.asm` for the new stack frame
+  layout.
+- Replace the `int 0x80` path with `syscall`/`sysret` and adapt userland
+  wrappers.
 :::
 
 ### Kernel Core
