@@ -1,15 +1,20 @@
 #!/bin/bash
 set -e
 
+# Usage:
+#   ./build-toolchain.sh         # builds an i686-elf toolchain
+#   TARGET=x86_64-elf ./build-toolchain.sh
+
 export PREFIX="$HOME/opt/cross"
-export TARGET=i686-elf
+export TARGET="${TARGET:-i686-elf}"
 export PATH="$PREFIX/bin:$PATH"
 export BINVER="2.38"
 export GCCVER="12.3.0"
 
 # create and enter our source tree
-mkdir -p "$HOME/source/x86"
-cd "$HOME/source/x86"
+SRCDIR="$HOME/source/$TARGET"
+mkdir -p "$SRCDIR"
+cd "$SRCDIR"
 
 # install prerequisites
 sudo apt-get update
@@ -50,7 +55,7 @@ make install
 #
 # 2) build & install GCC (C and C++)
 #
-cd "$HOME/source/x86"     # back to the source root
+cd "$SRCDIR"     # back to the source root
 mkdir -p build-gcc
 cd build-gcc
 
