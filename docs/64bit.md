@@ -1,328 +1,257 @@
-# 64-bit Porting Plan
+# 64-bit (x86-64) Port Plan for Vana
 
-This document outlines a high level plan for evolving the existing 32‑bit Vana kernel into a 64‑bit implementation.  The archive `64bitexample.tar.gz` located in the repository root provides a minimal 64‑bit kernel used as a reference for the tasks below.
+## Target & Constraints
 
-## Overview
+- **Mode:** x86-64 long mode with 4-level paging (LA57 off initially).
+- **Boot:** BIOS stage-1 remains; add a stage-2 under `boot64/` that builds tables and jumps to 64-bit. UEFI can come later.
+- **Kernel model:** higher-half, non-PIE, statically relocated. Optionally map physical memory directly for the memory manager.
+- **Syscalls:** use `syscall`/`sysret` for user ↔ kernel transitions but keep an `int` pathway for early debugging.
+- **ABI:** System V AMD64 for userland. Kernel follows SysV but disables the red zone.
+- **Baseline features:** LM, NX, SYSCALL and SSE2. PAT/SMEP/SMAP can be detected and enabled later.
 
-Migrating to 64‑bit requires work across the entire codebase: a new toolchain, boot code that enters long mode, updated paging structures and revisions to every assembly routine and data structure.  The changes are invasive so the process is broken down into small steps.
+## Canonical Virtual Layout (recommended)
 
-## Start Tasks
+| Region | Virtual range |
+| --- | --- |
+| User space | `0x0000000000400000` – `0x00007fff_ffffffff` |
+| Kernel text/data | `0xffffffff80000000` – `KERNEL_VMA` |
+| Direct-map phys (optional) | `0xffff8880_00000000` – `0xffffc87f_ffffffff` |
+| Guard pages | one below each kernel stack, marked NX |
 
-The following tasks give a starting point for exploring the current code and the reference example.  Completing them will surface the areas that need modifications for 64‑bit support.
+## Phase 1 — Toolchain & Build System
 
-:::start-task{title="Review current Vana source"}
-- Read the boot sequence described in `docs/bootloader.md` and inspect `src/boot/boot.asm`.
-- Review descriptor tables in `src/gdt` and `src/idt`.
-- Examine paging setup under `src/memory`.
-- Skim the scheduler and system call code in `src/task` and `src/isr80h`.
-:::
+**What to do**
 
-:::start-task{title="Inspect the 64-bit example"}
-- Extract `64bitexample.tar.gz` and read its build scripts and linker script.
-- Check how the example enters long mode in `boot.asm` and how it sets up page tables.
-- Note differences in calling conventions and data types (e.g. use of `uint64_t`).
-:::
+- Produce an `x86_64-elf` binutils and gcc toolchain parallel to the existing i686 build.
+- Add `ARCH=x86_64` make path with:
+  - **CFLAGS (kernel):** `-m64 -mcmodel=kernel -fno-pic -fno-pie -mno-red-zone -fno-omit-frame-pointer -ffreestanding -fno-builtin -nostdlib -mno-mmx -mno-sse`
+  - **LDFLAGS (kernel):** `-z max-page-size=0x1000` and `linker64.ld`
+  - **NASM:** `-f elf64` and `BITS 64`
+- Separate userland flags: `-O2 -m64 -fPIC` (red zone allowed).
 
-## Porting Plan
+**Done when** `readelf -h build/kernel64.o` shows `Class: ELF64` and `Machine: Advanced Micro Devices X86-64`.
 
-1. **Cross‑Compiler**
-   - Build an `x86_64-elf` GCC and Binutils toolchain similar to the existing 32‑bit one.
-   - Update the `build-toolchain.sh` script so `TARGET=x86_64-elf` and verify `x86_64-elf-gcc` is on the `PATH`.
-   - Adjust the `Makefile` to prefer the 64‑bit compiler and switch assembly sources to `nasm -f elf64`.
-   - Link the kernel with `linker64.ld` using `x86_64-elf-gcc` and `x86_64-elf-ld` (see the example Makefile in `64bitexample.tar.gz`).
-2. **Bootloader**
-   - Replace the 32‑bit boot code with a new loader that enables long mode.
-   - Borrow the initialization sequence from the example kernel.
-   - Load the kernel above 1 MiB, build temporary page tables and jump to the 64‑bit entry point.
-3. **Paging**
-   - Introduce 4‑level paging structures (PML4, PDPT, PD, PT).
-   - Implement helpers to allocate and map 64‑bit pages with the correct flags.
-   - Identity map the first few megabytes and map the kernel at a higher half address.
-4. **Descriptor Tables**
-   - Expand the GDT entries to 64‑bit descriptors and set up a `TSS` valid for long mode.
-   - Adjust IDT entries to the 64‑bit gate format and configure interrupt stack tables.
-5. **Context Switching and Syscalls**
-   - Rework task switching assembly in `src/task/task.asm` for the 64‑bit calling convention.
-   - Implement a syscall entry point using the `syscall`/`sysret` instructions.
-   - Update user stack handling and privilege transitions.
-6. **Kernel and User Code**
-   - Audit all structures and pointers for 32‑bit assumptions.
-   - Update constants in `src/config.h` to 64‑bit addresses and review pointer casts.
-7. **Linker Script**
-   - Create a new `linker.ld` targeting the `elf64-x86-64` format.
-   - Map the kernel to a higher half location similar to the example script.
-8. **User Programs**
-   - Recompile userland with the 64‑bit compiler and ensure ABI compatibility with the new syscall layer.
+## Phase 2 — Minimal Long-Mode Bring-Up (`boot64`)
 
-Each step should be validated in QEMU before moving to the next.  The reference kernel provides minimal implementations for most of these areas and can be consulted throughout the process.
+**Files**
 
-## Detailed Steps
+- `src/boot64/boot.asm` (new)
+- `src/kernel.asm` (64-bit entry stub)
+- `src/gdt/gdt64.asm|c` (tiny GDT)
+- Temporary page table builder (pure asm or small C compiled with `-m32`).
 
-The sections below expand the bullet list above and include concrete tasks for implementing the port.
+**Exact sequence**
 
-### 1. Build the x86_64 Toolchain
-The existing `build-toolchain.sh` script targets `i686-elf`. Create a parallel configuration that produces an `x86_64-elf` toolchain.
+1. **Real mode stage**
+   - Enable A20.
+   - Load `kernel64.elf` to a known physical region (e.g. from 1 MiB).
+2. **Build temporary paging**
+   - Construct PML4 → PDPT → PD → PT that identity-map the low 16 MiB and map the kernel physical range to `KERNEL_VMA`.
+   - Set PTE bits: `P=1`, `RW=1`, `NX=0` for kernel text (later set NX where appropriate), `US=0`, `G=1` for global kernel mappings.
+3. **Protected mode prep**
+   - Load a GDT with 32-bit segments and set `CR4.PAE=1`.
+4. **Enter long mode**
+   - Write `MSR_EFER (0xC0000080).LME=1`.
+   - Set `CR3` to the PML4 physical address.
+   - Set `CR0.PG=1` (and `PE=1`), then far jump to a 64-bit CS selector.
+5. **64-bit entry (`kernel64_entry`)**
+   - Load 64-bit GDT (flat, code=`0x9A`, data=`0x92`; long bit set in CS).
+   - Set up a temporary kernel stack in the high half.
+   - Zero segment registers except `GS/FS` as needed.
+   - Jump to `kernel_main`.
 
-* Install the same dependencies but set `TARGET=x86_64-elf`.
-* Build and install Binutils followed by GCC with C/C++ support.
-* Ensure `$HOME/opt/cross/bin` contains `x86_64-elf-gcc` and related tools.
+**Gotchas**
 
-:::start-task{title="Create x86_64 cross toolchain"}
-- Duplicate `build-toolchain.sh` or add options so it can produce the 64‑bit toolchain.
-- Document the commands needed to compile and install Binutils and GCC for `x86_64-elf`.
-- Verify the resulting compiler runs with `x86_64-elf-gcc -v`.
-:::
+- All target addresses must be canonical (bits 63:48 == bit 47).
+- Identity-map page tables, transition code and stack.
+- Do not rely on 32-bit `lgdt`/`lidt` encodings post-switch.
+- To use NX later, set `EFER.NXE=1` and program NX bits.
 
-### 2. Implement a 64-bit Bootloader
-The bootloader must switch the processor from real mode all the way to long mode. Use the reference `boot.asm` as a starting point and adapt it for Vana.
+**Done when** QEMU logs “hello from long mode” from `kernel_main` and can print a few values.
 
-* Keep a 16‑bit stage that loads the kernel and page tables to 0x100000.
-* Enable the A20 line and enter protected mode just long enough to set up paging.
-* Build minimal PML4/PDPT/PD/PT structures so `CR3` can be loaded.
-* Set the `LME` bit in `EFER`, enable paging and jump to the 64‑bit kernel entry.
+## Phase 3 — Linker Script & Relocation Model
 
-:::start-task{title="Write long mode bootloader"}
-- Create `src/boot64/boot.asm` with real mode setup and the long mode transition code.
-- Update the build to assemble this file with `nasm -f elf64`.
-- Confirm the bootloader loads the kernel and reaches the 64‑bit entry in QEMU.
-:::
+- Create `linker64.ld` producing ELF64 output with `LMA` at the physical load (e.g. 1 MiB) and `VMA` at `KERNEL_VMA`.
+- Provide symbols: `_kernel_start/_end`, `_text/_etext`, `_data/_edata`, `_bss/_ebss`, `_phys_to_virt_offset`.
+- Ensure page-aligned segments and `max-page-size=0x1000`.
+- Allow `R_X86_64_RELATIVE` relocations; avoid dynamic relocations.
 
-### 3. Update Paging and Memory Management
-Long mode requires four levels of page tables. The existing paging code only handles 32‑bit directories.
+**Done when** `readelf -lW kernel64.elf` shows `PT_LOAD` segments with low-memory `LMA` and high-half `VMA` with a constant offset.
 
-* Define new structures for PML4, PDPT, PD and PT entries.
-* Implement helpers to allocate each table and set flags (present, write, execute disable).
-* Map the kernel to a higher half address (e.g. `0xFFFFFFFF80000000`) while keeping an identity map for early boot.
+## Phase 4 — Paging & Memory Manager (real tables, not just temp)
 
-:::start-task{title="Add 64-bit page table support"}
-- Add `paging64.c` and `paging64.h` to build PML4, PDPT, PD and PT tables with
-  64-bit flags such as `NX`, `RW` and `US`.
-- Replace uses of the 32‑bit paging code in the kernel initialization path.
-- Verify virtual addresses resolve correctly under QEMU.
-:::
+- Entries are 64-bit. Define common flag mask: `P(1<<0) RW(1<<1) US(1<<2) PWT(1<<3) PCD(1<<4) A(1<<5) D(1<<6) PS(1<<7) G(1<<8) NX(1ULL<<63)`.
+- `CR4`: set `PAE`; later consider `SMEP` and `SMAP`.
+- `EFER`: set `LME`, optionally `NXE`.
+- Implement `paging64.{c,h}` with:
+  - PML4 allocator and mapping helpers (`map_page`, `map_range`, `unmap`).
+  - Higher-half map for kernel image (RX for text, RW for data, NX where appropriate).
+  - Optional direct map region to cover low N GiB phys (RW, NX).
+  - TLB shootdown API stub for future SMP (no-op now).
+  - Early-boot bump allocator for tables before PMM online.
 
-### 4. Revise Descriptor Tables
-GDT entries remain eight bytes but long mode uses a 16‑byte IDT gate and a larger Task State Segment.
+**Done when** page allocation and mapping work; `virt_to_phys`/`phys_to_virt` handle kernel and direct-map addresses. QEMU boots with NX enabled and deliberate NX fault traps.
 
-* Encode 64‑bit code and data segments and create a 64‑bit compatible TSS.
-* Replace the old IDT setup with 64‑bit gates including interrupt stack table (IST) entries.
+## Phase 5 — Descriptors, IDT and TSS (long-mode format)
 
-:::start-task{title="Upgrade GDT and IDT"}
-- Rewrite `gdt.c`, `gdt.asm`, `idt.c` and `idt.asm` to emit 64‑bit descriptors.
-- Define a TSS structure with an IST for fault handling.
-- Ensure interrupts work after the switch to long mode.
-:::
+- **GDT**: minimal descriptors (kernel CS: 64-bit code, kernel DS: data, optional user CS/DS).
+- Encode 64-bit TSS via system segment (two descriptors, 16 bytes) and load with `ltr`.
+- **TSS64**: contains `rsp0/rsp1/rsp2` and `IST[0..6]`; dedicate ISTs for `#DF`, `NMI`, `#PF` and general faults.
+- **IDT**: 16-byte gates with offset split low/mid/high; for faults/IRQs use DPL=0, for syscall-like ints DPL=3.
 
-### 5. Context Switching and Syscalls
-Task switching and system calls must follow the x86‑64 System V ABI.
+**Done when** `lidt` loads 16-byte gates and deliberate `#PF` lands on a known IST stack printing sane `RIP/CR2`.
 
-* Save and restore all callee-saved registers including `r12–r15`.
-* Use `syscall`/`sysret` for user to kernel transitions and provide a legacy interrupt stub for debugging.
-* Update `task.c` and related assembly to push 64‑bit register state.
+## Phase 6 — Context Switching & ABI-Correct Entry/Exit
 
-:::start-task{title="Implement 64-bit context switch"}
-- Replace `task.asm` with a version that operates on 64‑bit stacks.
-- Provide a new syscall dispatcher in `isr80h` that reads arguments from `rdi`, `rsi`, `rdx`, etc.
-- Adapt the scheduler so tasks store 64‑bit instruction and stack pointers.
-:::
+- Follow SysV AMD64 calling convention.
+- Define a trap frame including: `r15..r12`, `rbx`, `rbp`, `rdi`, `rsi`, `rdx`, `rcx`, `r8`, `r9`, `rax`, `rip`, `cs`, `rflags`, `rsp`, `ss`, plus error code.
+- Switcher saves callee-saved regs and ensures stack alignment before `iretq`.
+- Manage FPU state with `fxsave`/`fxrstor` (later `xsave`).
 
-### 6. Migrate Kernel and User Code
-Many structures and constants assume 32‑bit sizes.
+**Done when** two kernel threads yield cooperatively and resume with registers intact; stack alignment verified.
 
-* Replace `uint32_t` pointers with `uint64_t` where necessary.
-* Review driver code for assumptions about register width or address size.
-* Update `src/config.h` with new high half addresses and stack sizes.
+## Phase 7 — Syscall Path (`syscall`/`sysret`)
 
-:::start-task{title="Audit and update core structures"}
-- Search the source tree for 32‑bit types and convert them to 64‑bit friendly versions.
-- Adjust printf/formatting helpers in the example libc to handle 64‑bit values.
-:::
+- Program MSRs:
+  - `IA32_STAR (0xC0000081)` – kernel/user selectors.
+  - `IA32_LSTAR (0xC0000082)` – RIP target for `syscall` entry.
+  - `IA32_FMASK (0xC0000084)` – RFLAGS mask cleared on entry.
+- Entry sequence:
+  - CPU stores user `RIP`→`rcx`, `RFLAGS`→`r11`, rises to CPL0, loads `CS/SS` from `STAR`.
+  - `swapgs`, pivot to kernel stack (`rsp0` from TSS), build frame and call dispatcher with args in `rdi..r9` and syscall number in `rax`.
+- Exit: restore registers, `swapgs`, set return `RIP`/`RFLAGS` from saved `rcx`/`r11` and `sysretq`.
+- Handle edge cases: non-canonical addresses fall back to `iretq`; mask TF/IF via `SFMASK`; wrap user copies with `stac`/`clac` when SMAP enabled.
+- Userland stubs: inline asm placing number in `rax` and args in regs, then `syscall`.
 
-### 7. Create a 64-bit Linker Script
-The kernel needs a new linker script targeting ELF64.
+**Done when** a user test performs `write()` via syscall table and returns correct byte count with expected register prints.
 
-* Base the script on `64bitexample/link.lds` but keep the section layout from the existing kernel.
-* Place the kernel at a high virtual address and ensure the physical load address matches the bootloader expectations.
+## Phase 8 — Loader & ELF64 Support
 
-:::start-task{title="Write linker.ld for ELF64"}
-- Add `linker64.ld` and update the build system to use it when compiling for 64‑bit.
-- Verify the produced ELF loads correctly by inspecting it with `readelf`.
-:::
+- Handle `Elf64_Ehdr`, `Elf64_Phdr`, `Elf64_Shdr`.
+- Map `PT_LOAD` segments at `VMA` with correct permissions and `p_align`.
+- Support `R_X86_64_RELATIVE`, `R_X86_64_64`, `R_X86_64_32S`; keep kernel fully static (no PIE, `-fno-pic`).
 
-### 8. Rebuild User Programs
-Userland must be compiled with the new toolchain and use the 64‑bit syscall ABI.
+**Done when** in-kernel loader parses ELF64 and starts a trivial 64-bit user binary.
 
-* Port the small example libc to 64‑bit, updating inline assembly and types.
-* Recompile all programs with `x86_64-elf-gcc` and link against the new kernel headers.
+## Phase 9 — Core C Source Audit
 
-:::start-task{title="Port userland to 64-bit"}
-- Update the make rules under `programs/` to use the 64‑bit compiler.
-- Modify syscall wrappers in the libc to pass arguments via `rdi`/`rsi`/`rdx`.
-- Ensure the shell and test programs run in the 64‑bit environment.
-:::
+- Replace pointer-ish `uint32_t` with `uintptr_t`/`uint64_t`.
+- Review size counters: `size_t` is 64-bit.
+- `printf`/`vsnprintf`: handle `%p`, `%llx`, `%zu`.
+- IO & drivers: ensure MMIO and port I/O use 64-bit regs (`dx` for ports).
+- Memory: page allocator initially returns physical addresses <4 GiB; later support >4 GiB. Direct map simplifies `phys_to_virt`.
 
-### 9. Testing and Debugging
-Frequent testing avoids large integration problems.
+**Done when** kernel builds cleanly with `-Werror` for format/size/alignment warnings.
 
-* Boot every milestone in QEMU using `make run` equivalents for the 64‑bit build.
-* Use the `-s -S` flags with QEMU to attach `gdb` and debug early crashes.
-* Consider adding simple unit tests for paging and context switching routines.
+## Phase 10 — Exceptions, Interrupts and Stacks
 
-:::start-task{title="Validate 64-bit kernel"}
-- Provide QEMU command examples for booting the kernel with debugging enabled.
-- Document common failure points and how to inspect page tables and register state in `gdb`.
-:::
+- Populate IDT with 256 vectors, present and type=interrupt gate.
+- Assign ISTs: `IST1` for NMI, `IST2` for `#DF`, `IST3` for `#PF`, `IST4` for general faults.
+- Handlers push error codes where applicable; common stub normalizes frames for C handlers.
+- Stick with PIC during early bring-up; move to APIC later.
 
-## File‑by‑File Migration Guide
+**Done when** deliberate `#PF` prints `CR2`, `RIP` and recovers or halts gracefully.
 
-The checklist below summarises concrete edits required across the source tree. It
-is intentionally verbose so that each component can be migrated and verified in
-isolation.  Follow the order roughly from low level boot code up to userland.
+## Phase 11 — Security & Robustness (initial set)
 
-### Assembly Files to Rewrite
-The following assembly sources require complete 64‑bit rewrites. Each has an
-equivalent implementation in `64bitexample.tar.gz` that can be referenced when
-performing the conversion.
+- Enable `NXE` and mark kernel data NX; only `.text` is RX.
+- Guard pages under kernel stacks.
+- Validate user pointers on syscall entry; avoid `rep movs` without `stac/clac` once SMAP is on.
+- Later: enable `SMEP/SMAP`, consider `KPTI`, enforce W^X in userland loader.
 
-* **src/boot/boot.asm** – rebuild with `nasm -f elf64` and perform the long
-  mode transition using 64‑bit registers.
-* **src/kernel.asm** – convert the entry stub to use `rax`, `rbx` and other
-  64‑bit registers before jumping to `kernel_main`.
-* **src/io/io.asm** – update port I/O helpers to use `rax`/`rdx` and the
-  64‑bit instruction forms.
-* **src/memory/paging/paging.asm** – replace 32‑bit paging code with 4‑level
-  page table operations and 64‑bit `cr3` loads.
-* **src/task/task.asm** – save and restore `r8–r15` and follow the System V
-  ABI for context switches.
-* **src/task/tss.asm** – implement the long‑mode TSS layout and load it with
-  `ltr`.
-* **src/gdt/gdt.asm** – emit 64‑bit descriptors compatible with long mode and
-  load them via `lgdt`.
-* **src/idt/idt.asm** – create 16‑byte IDT gates and set IST indices for each
-  handler.
+## Phase 12 — Userland Rebuild
 
-### Boot Code
+- Recompile libc stubs for x86-64 and update syscall inline asm.
+- Ensure crt0/start files align stack to 16 bytes before calling `main`.
+- Keep `int 0x80` compat shim while migrating if desired.
 
-* **src/boot/boot.asm** – remove the 32‑bit real mode loader. Create
-  `src/boot64/boot.asm` based on the example. It must:
-  - Enable A20, build page tables and switch to long mode.
-  - Load `kernel64.elf` at 0x100000 and jump to its 64‑bit entry label.
-* **src/kernel.asm** – rewrite as a 64‑bit stub called from the bootloader. It
-  sets up segment registers and a stack in the higher half (e.g.
-  `0xFFFFFFFF80000000`) before jumping to `kernel_main`.
+**Done when** shell or test binary runs, performs at least two syscalls and prints output.
 
-:::start-task{title="Convert boot code"}
-- Stub out the existing 32‑bit assembly in `src/boot/boot.asm`.
-- Add `boot64/boot.asm` and update `Makefile` rules to assemble with
-  `nasm -f elf64`.
-- Provide a 64‑bit version of `kernel.asm` that matches the new entry flow.
-:::
+## Phase 13 — Testing, Instrumentation and GDB
 
-#### New boot64 stage
-`src/boot64/boot.asm` forms a second stage executed after the initial boot sector. It performs basic real-mode setup, builds temporary page tables and enables long mode. The steps include:
-1. Loading the kernel to `0x100000` while still in real mode.
-2. Creating a PML4, PDPT, PD and PT used only during the transition.
-3. Setting `EFER.LME`, loading the PML4 into `CR3` and enabling paging.
-4. Jumping to the `kernel64_entry` symbol in long mode.
+- **QEMU recipe:** `qemu-system-x86_64 -m 512 -no-reboot -d int,cpu_reset -serial stdio -s -S -drive file=build/vanadisk.img,format=raw`
+  - `-s -S` lets GDB attach before first instruction.
+- **GDB:** `target remote :1234`, `set arch i386:x86-64`, `add-symbol-file build/kernel64.elf <KERNEL_VMA+_text>`.
+- Useful macros to inspect CR regs and walk PML4.
+- Breakpoints on `#PF` handler and syscall entry.
+- **Self-tests:** page table probe, context switch ping-pong, syscall regression, string/mem primitives with 64-bit sizes.
 
-This stage prepares the processor and hands control to the 64-bit kernel stub.
+**Common failure modes**
 
-### Descriptor Tables
+- Triple-fault reboot: missing identity map for switch code or wrong `CR3`; invalid GDT/CS.
+- IRQ/exception lost: IDT gates still 8 bytes or not present.
+- Random crashes on task switch: stack mis-alignment or missing save of `r12–r15`.
+- `sysret` `#GP`: non-canonical `RIP/RSP`; fall back to `iretq`.
+- User copy faults with SMAP: missing `stac/clac` around copies.
 
-* **src/gdt/gdt.h** – change `struct gdt` and `struct gdt_structured` to store
-  64‑bit base addresses.
-* **src/gdt/gdt.c** – update `gdt_structured_to_gdt` to split a 64‑bit base into
-  low, mid and high components so descriptors encode the full address.
-* **src/gdt/gdt.asm** – emit long‑mode compatible descriptor entries and load
-  the table with `lgdt`.
-* **src/task/tss.asm** and **src/task/tss.h** – define a 64‑bit TSS with
-  separate stacks for interrupts.
-* **src/idt/idt.c** and **src/idt/idt.asm** – rewrite IDT setup for 16‑byte gate
-  descriptors and configure IST pointers in the TSS.
+## File-by-File Guide (mapped to your tree)
 
-:::start-task{title="Upgrade descriptor tables"}
-- Modify GDT structures to use `uint64_t` bases and limits.
-- Teach `gdt_structured_to_gdt` and `gdt.asm` to produce 64‑bit descriptors.
-- Generate 16‑byte IDT descriptors in `idt.c`/`idt.asm` and wire up IST
-  indices.
-- Add a long‑mode TSS definition and load it in `gdt.c` during initialization.
-:::
+### Boot
 
-### Paging and Memory
+- `src/boot/boot.asm`: keep stage-1 (BIOS). Remove 32-bit paging switch.
+- `src/boot64/boot.asm`: A20, temp tables, `CR4.PAE`, `EFER.LME`, `CR0.PG`, far jump; identity map + higher-half map.
+- `src/kernel.asm`: 64-bit stub to set stack (high half), load `GDT64`, zero segs, call `kernel_main`.
 
-* **src/memory/paging/paging.*** – replace the 32‑bit directory logic with
-  routines for PML4, PDPT, PD and PT creation.
-* **src/memory/heap/kheap.c** – adjust pointer types to `uintptr_t` and confirm
-  allocations work above the 4GiB boundary.
-* **src/memory/memory.c** – review `memset`, `memcpy` and `memcmp` for
-  size‑t/ptr differences when compiled in 64‑bit mode.
+### Descriptors
 
-:::start-task{title="Implement new paging"}
-- Add `paging64.c`/`paging64.h` and migrate kernel setup in `kernel.c` to use
-  these helpers for constructing PML4, PDPT, PD and PT entries with the proper
-  execute-disable and user permissions.
-- Ensure the higher half mapping is established before enabling paging.
-- Update heap initialisation to allocate from the new virtual addresses.
-:::
+- `src/gdt/gdt.h|c|asm`: 64-bit GDT and TSS; `ltr` during init.
+- `src/idt/idt.h|c|asm`: 16-byte gate emitters, IST indices, `lidt`.
+- `src/task/tss.asm|h`: 64-bit TSS layout with `rsp0` + ISTs.
 
-### Task Switching and Syscalls
+### Paging/MM
 
-* **src/task/task.asm** – rewrite push/pop logic for the System V ABI. Include
-  registers `r8–r15` and expand the trap frame structure.
-* **src/task/tss.asm** – implement the 64‑bit TSS layout and load kernel and
-  user stack pointers for `syscall` transitions.
-* **src/task/task.c** and **src/task/process.c** – store 64‑bit `rip` and
-  `rsp` values in the `struct task` and `struct process` records.
-* **src/isr80h** – migrate syscall entry and exit to the `syscall`/`sysret`
-  instructions and update transition code accordingly.
-* **src/isr80h/isr80h.c** – change the dispatcher to read parameters from the
-  `rdi`, `rsi`, `rdx`, `rcx`, `r8` and `r9` registers.
+- `src/memory/paging/paging64.{c,h}`: PML4/PDPT/PD/PT constructors; flags; map/unmap.
+- `src/memory/heap/kheap.c`: `uintptr_t`/`size_t`, high-half addresses.
+- `src/memory/memory.c`: audit `mem*` for 64-bit sizes and alignment.
 
-:::start-task{title="Refactor context switch"}
-- Expand register save areas in `task.h` and update `task.c` to manage 64‑bit
-  stacks.
-- Update assembly stubs in `task.asm` and `tss.asm` for the new stack frame
-  layout.
-- Replace the `int 0x80` path with `syscall`/`sysret` and adapt userland
-  wrappers.
-:::
+### Context & Syscalls
+
+- `src/task/task.asm`: save/restore `r15..r12`, `rbx`, `rbp`; frame layout; `iretq`.
+- `src/task/task.c|process.c`: 64-bit `rip/rsp`; kernel stack alloc with guard page.
+- `src/isr80h/`: entry stub at `LSTAR`; `swapgs`, pivot to `rsp0`, save `rcx/r11`, call dispatcher; dispatcher reads args from regs, `rax` carries syscall number; exit restores regs, `swapgs`, `sysretq`.
+
+### ELF & Loader
+
+- `src/loader/elf64.{c,h}`: parse ELF64 headers and program headers; map `PT_LOAD` with perms; respect `p_align`.
+- If modules: keep static or define relocation subset.
 
 ### Kernel Core
 
-* **src/config.h** – update selectors, virtual addresses and stack sizes for
-  64‑bit. Define `KERNEL_VMA` (e.g. `0xFFFFFFFF80000000`).
-* **src/kernel.c** – allocate the new paging structures, load the kernel at
-  `KERNEL_VMA` and set up the GDT/IDT before entering the scheduler.
-* **src/io/io.asm** and other port I/O helpers – confirm all instructions use
-  the 64‑bit register forms.
+- `src/config.h`: `KERNEL_VMA`, selectors, stack sizes, feature toggles (NXE).
+- `src/kernel.c`: build tables, load `GDT/IDT/TSS`, enable `NXE`, program MSRs for syscall, enter scheduler.
+- `src/io/io.asm`: 64-bit friendly wrappers (ports still `dx`, data sizes unchanged).
 
-:::start-task{title="Update kernel core"}
-- Search all `.c` files for `uint32_t` and convert pointers to `uint64_t` or
-  `uintptr_t`.
-- Adjust the linker script to place the kernel at `KERNEL_VMA`.
-- Ensure all assembly files specify `[BITS 64]` and are assembled as ELF64.
-:::
+### Userland
 
-### C Source Updates by Directory
-Refer to the modules inside `64bitexample.tar.gz` for working 64‑bit code.
+- `example_libc`: update syscall inline asm; `%p`/`%zu`/`%ld` formatting; errno handling.
+- `programs/*`: rebuild with `x86_64-elf-gcc`; ensure `_start` aligns stack to 16 bytes before `main`.
 
-* **src/gdt** – update descriptors and loader routines for 64‑bit bases.
-* **src/idt** – create 16‑byte gate structures and fill 64‑bit handler addresses.
-* **src/memory/paging** – provide PML4/PDP table creation helpers and rewrite paging initialization.
-* **src/task** – store 64‑bit register state and update scheduler logic.
-* **src/isr80h** – fetch syscall parameters from `rdi` onward following the System V ABI.
-* **src/loader** – extend the ELF loader to parse 64‑bit headers and program segments.
-* **src/kernel.c** – build 64‑bit page tables, load the new GDT/IDT and start the first task.
-* **src/config.h** – define 64‑bit addresses, segment selectors and stack sizes.
+## Milestone Checklist (in order)
 
-### Userland and Libraries
+1. Kernel objects are ELF64; `kernel64.elf` links with high-half VMA.
+2. Reach `kernel_main` through `boot64` with temporary tables (“hello from long mode”).
+3. Switch to final PML4; `NXE` on; higher-half only (except identity window for early devices).
+4. IDT64 + TSS64 + IST; deliberate `#PF` prints `CR2` and returns/halts cleanly.
+5. Context switch between two kernel threads without corruption; FPU preserved.
+6. User test binary calls a syscall and returns; `sysretq` path validated.
+7. Userland shell (or simple app) runs; file/console syscalls work.
+8. Regression tests: fault injection (NX, non-canonical), mapping/unmapping, large allocations.
 
-* **example_libc** and **programs/** – rebuild with `x86_64-elf-gcc`. Update
-  inline assembly in the libc to use the new syscall conventions.
+## Deep-Dive Notes & Exact Bits (quick reference)
 
-:::start-task{title="Finalize userland"}
-- Replace any 32‑bit specific assembly in `example_libc` with 64‑bit
-  equivalents.
-- Recompile the shell and test utilities and run them under QEMU.
-:::
+- **CR0:** set `PG` (bit 31) and `PE` (bit 0); keep `WP` (bit 16) once paging is stable.
+- **CR4:** set `PAE` (bit 5); later `PGE` (bit 7), `OSFXSR` (bit 9), `OSXMMEXCPT` (bit 10), optionally `SMEP` (20), `SMAP` (21).
+- **EFER (0xC0000080):** set `LME` (bit 8) before enabling `PG`; set `NXE` (bit 11) for NX.
+- **STAR (0xC0000081):** upper/lower selector pairs (kernel/user `CS/SS`) encoded per AMD64 manual.
+- **LSTAR (0xC0000082):** RIP for syscall entry (kernel VA).
+- **SFMASK (0xC0000084):** mask `IF|DF|TF|NT|AC`; restore from saved `r11`.
+- **IDT gate:** type `0xE` (interrupt), present `1`, DPL as needed, IST index `0..7`.
+- **TSS64:** 104+ bytes; write `rsp0` each context if using per-thread kernel stacks; load with `ltr`.
+
+## How to iterate safely (workflow)
+
+- Keep 32-bit build working while bringing up 64-bit in parallel (`make vana32`, `make vana64`).
+- Land one subsystem per commit/PR: boot, paging, IDT/TSS, context, syscall, userland.
+- After each milestone, add a tiny self-test (panic on failure) and keep it permanently.
+- Ask for concrete snippets (linker, boot64 skeleton, syscall stubs, trap frame structs) as needed.
 
