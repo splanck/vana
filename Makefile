@@ -53,7 +53,7 @@ FILES = ./build/kernel.asm.o \
         ./build/fs/pparser.o \
         ./build/fs/fat/fat16.o
 INCLUDES = -I./src -I./src/gdt -I./src/task -I./src/idt -I./src/fs -I./src/fs/fat -I./src/loader/formats -I./src/isr80h
-BUILD_DIRS = ./bin ./build/memory/heap ./build/memory/paging ./build/keyboard ./build/disk ./build/fs ./build/fs/fat ./build/task ./build/loader/formats ./build/isr80h
+BUILD_DIRS = ./bin ./build/memory/heap ./build/memory/paging ./build/keyboard ./build/disk ./build/fs ./build/fs/fat ./build/task ./build/loader/formats ./build/isr80h ./build/boot64
 FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign-loops -fstrength-reduce -fomit-frame-pointer -finline-functions -Wno-unused-function -fno-builtin -Werror -Wno-unused-label -Wno-cpp -Wno-unused-parameter -nostdlib -nostartfiles -nodefaultlibs -Wall -O0 -Iinc -fno-pie -no-pie
 
 # Directory where the FAT image will be mounted
@@ -198,10 +198,21 @@ run:
 	qemu-system-i386 -drive format=raw,file=./bin/os.bin
 
 .PHONY: vana64
-vana64: dirs bin/kernel64.bin
+vana64: dirs bin/boot64.bin bin/kernel64.bin
+	rm -rf ./bin/os64.bin
+	dd if=./bin/boot64.bin >> ./bin/os64.bin
+	dd if=./bin/kernel64.bin >> ./bin/os64.bin
+	dd if=/dev/zero bs=1048576 count=16 >> ./bin/os64.bin
 
 build/kernel64.o: src/kernel64.c
 	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
 
 bin/kernel64.bin: build/kernel64.o
 	$(LD) $(LDFLAGS) build/kernel64.o -o bin/kernel64.bin
+
+build/boot64/boot.o: src/boot64/boot.asm
+	nasm -f elf32 -g src/boot64/boot.asm -o build/boot64/boot.o
+
+bin/boot64.bin: build/boot64/boot.o
+	$(LD) -Ttext 0x7c00 build/boot64/boot.o -o build/boot64/boot.elf
+	objcopy -O binary build/boot64/boot.elf bin/boot64.bin
