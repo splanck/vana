@@ -207,8 +207,13 @@ vana64: dirs bin/boot64.bin bin/kernel64.bin
 build/kernel64.o: src/kernel64.c
 	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
 
-bin/kernel64.bin: build/kernel64.o
-	$(LD) $(LDFLAGS) build/kernel64.o -o bin/kernel64.bin
+ifeq ($(ARCH),x86_64)
+build/kernel64.asm.o: src/kernel64.asm
+	nasm -f elf64 -g src/kernel64.asm -o build/kernel64.asm.o
+
+bin/kernel64.bin: build/kernel64.asm.o build/kernel64.o
+	$(LD) $(LDFLAGS) build/kernel64.asm.o build/kernel64.o -o bin/kernel64.bin
+endif
 
 build/boot64/boot.o: src/boot64/boot.asm
 	nasm -f elf32 -g src/boot64/boot.asm -o build/boot64/boot.o
