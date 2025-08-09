@@ -43,34 +43,10 @@ pmode:
     mov fs, ax
     mov gs, ax
 
-    ; Zero page tables (PML4, PDPT, PD)
-    mov edi, pml4_table
-    mov ecx, (4096*3)/4
-    xor eax, eax
-    rep stosd
+    ; Build temporary page tables
+    call setup_pagetables
 
-    ; Build identity mapping for first 16MiB using 2MiB pages
-    mov eax, pdpt_table
-    or eax, 0x3
-    mov [pml4_table], eax
-    mov [pml4_table+4], dword 0
-
-    mov eax, pd_low
-    or eax, 0x3
-    mov [pdpt_table], eax
-    mov [pdpt_table+4], dword 0
-
-    mov ecx, 8                 ; 8 * 2MiB = 16MiB
-    mov eax, 0x00000083        ; present|rw|ps
-    mov ebx, pd_low
-.map:
-    mov [ebx], eax
-    mov [ebx+4], dword 0
-    add eax, 0x200000
-    add ebx, 8
-    loop .map
-
-    ; Load PML4
+    ; Load PML4 physical address into CR3
     mov eax, pml4_table
     mov cr3, eax
 
@@ -156,13 +132,8 @@ gdt_start:
     gdt_data: dq 0x00af92000000ffff
 gdt_end:
 
-gdt_descriptor:
-    dw gdt_end - gdt_start - 1
-    dd gdt_start
+  gdt_descriptor:
+      dw gdt_end - gdt_start - 1
+      dd gdt_start
 
-align 4096
-pml4_table:  dq 0
-align 4096
-pdpt_table:  dq 0
-align 4096
-pd_low:      times 512 dq 0
+  %include "src/boot64/pagetables.asm"
