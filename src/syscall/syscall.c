@@ -9,14 +9,16 @@ void syscall_register(int num, syscall_handler_t handler)
         syscall_table[num] = handler;
 }
 
-uint64_t syscall_dispatch(uint64_t num)
+uint64_t syscall_dispatch(uint64_t num,
+                          uint64_t arg1, uint64_t arg2, uint64_t arg3,
+                          uint64_t arg4, uint64_t arg5, uint64_t arg6)
 {
     syscall_handler_t handler = 0;
     if (num < 256)
         handler = syscall_table[num];
     if (!handler)
         return (uint64_t)-1;
-    return handler();
+    return handler(arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
 static inline void wrmsr(uint32_t msr, uint64_t val)
