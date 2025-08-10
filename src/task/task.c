@@ -9,6 +9,10 @@
 #include "loader/formats/elfloader.h"
 #include "idt/idt.h"
 
+#ifdef __x86_64__
+/* Assembly helper that restores registers and returns to user mode. */
+extern void task_switch64(struct registers* regs);
+#endif
 /*
  * Pointer to the task that currently owns the CPU. The scheduler keeps
  * tasks in a doubly linked list and `current_task` always references the
@@ -153,7 +157,11 @@ void task_next()
     }
 
     task_switch(next_task);
+#ifdef __x86_64__
+    task_switch64(&next_task->registers);
+#else
     task_return(&next_task->registers);
+#endif
 }
 
 /*
@@ -280,7 +288,11 @@ void task_run_first_ever_task()
     }
 
     task_switch(task_head);
+#ifdef __x86_64__
+    task_switch64(&task_head->registers);
+#else
     task_return(&task_head->registers);
+#endif
 }
 
 /*
