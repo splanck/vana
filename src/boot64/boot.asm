@@ -4,6 +4,7 @@ BITS 16
 ; Loads kernel64.elf at 1MiB and sets up temporary identity-mapped page tables
 
 KERNEL_LOAD_ADDR equ 0x100000
+KERNEL_VMA       equ 0xffffffff80000000
 CODE_SEG equ 0x08
 DATA_SEG equ 0x10
 
@@ -78,7 +79,7 @@ long_mode:
     mov fs, ax
     mov gs, ax
 
-    mov rax, KERNEL_LOAD_ADDR
+    mov rax, KERNEL_VMA
     jmp rax
 
 [BITS 16]
