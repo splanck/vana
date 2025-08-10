@@ -19,9 +19,9 @@ SECTIONS
 
     .text : ALIGN(0x1000) AT(KERNEL_PHYS)
     {
-        _text = .;
+        PROVIDE(_text = .);
         *(.text*)
-        _etext = .;
+        PROVIDE(_etext = .);
     } :text
 
     .rodata : ALIGN(0x1000) AT(KERNEL_PHYS + (ADDR(.rodata) - KERNEL_VMA))
@@ -31,17 +31,17 @@ SECTIONS
 
     .data : ALIGN(0x1000) AT(KERNEL_PHYS + (ADDR(.data) - KERNEL_VMA))
     {
-        _data = .;
+        PROVIDE(_data = .);
         *(.data*)
-        _edata = .;
+        PROVIDE(_edata = .);
     } :data
 
     .bss : ALIGN(0x1000) (NOLOAD) AT(KERNEL_PHYS + (ADDR(.bss) - KERNEL_VMA))
     {
-        _bss = .;
+        PROVIDE(_bss = .);
         *(COMMON)
         *(.bss*)
-        _ebss = .;
+        PROVIDE(_ebss = .);
     } :data
 
     .asm : ALIGN(0x1000) AT(KERNEL_PHYS + (ADDR(.asm) - KERNEL_VMA))
