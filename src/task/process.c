@@ -1,3 +1,28 @@
+#ifdef __x86_64__
+#include "task/tss.h"
+#include "gdt/gdt.h"
+#include <stddef.h>
+
+extern struct tss64 tss64;
+extern void tss64_load(uint16_t tss_segment);
+
+void tss64_init(uint64_t rsp0)
+{
+    uint64_t* tss = (uint64_t*)&tss64;
+    for (size_t i = 0; i < sizeof(struct tss64)/sizeof(uint64_t); i++)
+        tss[i] = 0;
+    tss64.rsp0 = rsp0;
+    tss64.ist1 = rsp0;
+    tss64.ist2 = rsp0;
+    tss64.ist3 = rsp0;
+    tss64.ist4 = rsp0;
+    tss64.ist5 = rsp0;
+    tss64.ist6 = rsp0;
+    tss64.ist7 = rsp0;
+    tss64_load(GDT64_TSS_SELECTOR);
+}
+
+#else
 #include "process.h"
 #include "config.h"
 #include "status.h"
@@ -701,3 +726,4 @@ out:
     }
     return res;
 }
+#endif

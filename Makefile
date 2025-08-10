@@ -170,22 +170,22 @@ all: user_programs dirs ./bin/boot.bin ./bin/kernel.bin
 	$(CC) $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/loader/formats/elf.c -o ./build/loader/formats/elf.o
 
 ./build/loader/formats/elfloader.o: ./src/loader/formats/elfloader.c
-	        $(CC) $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/loader/formats/elfloader.c -o ./build/loader/formats/elfloader.o
+	$(CC) $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/loader/formats/elfloader.c -o ./build/loader/formats/elfloader.o
 
 ./build/isr80h/isr80h.o: ./src/isr80h/isr80h.c
-		$(CC) $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/isr80h.c -o ./build/isr80h/isr80h.o
+	$(CC) $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/isr80h.c -o ./build/isr80h/isr80h.o
 
 ./build/isr80h/io.o: ./src/isr80h/io.c
-		$(CC) $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/io.c -o ./build/isr80h/io.o
+	$(CC) $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/io.c -o ./build/isr80h/io.o
 
 ./build/isr80h/heap.o: ./src/isr80h/heap.c
-		                $(CC) $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/heap.c -o ./build/isr80h/heap.o
+	$(CC) $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/heap.c -o ./build/isr80h/heap.o
 
 ./build/isr80h/misc.o: ./src/isr80h/misc.c
-		$(CC) $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/misc.c -o ./build/isr80h/misc.o
+	$(CC) $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/misc.c -o ./build/isr80h/misc.o
 
 ./build/isr80h/process.o: ./src/isr80h/process.c
-		                $(CC) $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/process.c -o ./build/isr80h/process.o
+	$(CC) $(INCLUDES) $(FLAGS) -std=gnu99 -c ./src/isr80h/process.c -o ./build/isr80h/process.o
 
 clean: user_programs_clean
 	rm -rf ./bin/boot.bin
@@ -211,8 +211,29 @@ ifeq ($(ARCH),x86_64)
 build/kernel64.asm.o: src/kernel64.asm
 	nasm -f elf64 -g src/kernel64.asm -o build/kernel64.asm.o
 
-bin/kernel64.bin: build/kernel64.asm.o build/kernel64.o
-	$(LD) $(LDFLAGS) build/kernel64.asm.o build/kernel64.o -o bin/kernel64.bin
+build/memory/paging/paging64.o: src/memory/paging/paging64.c
+	$(CC) $(KERNEL_CFLAGS) -I./src -c src/memory/paging/paging64.c -o build/memory/paging/paging64.o
+
+build/gdt/gdt64.o: src/gdt/gdt64.c
+	$(CC) $(KERNEL_CFLAGS) -I./src -c src/gdt/gdt64.c -o build/gdt/gdt64.o
+
+build/gdt/gdt64.asm.o: src/gdt/gdt64.asm
+	nasm -f elf64 -g src/gdt/gdt64.asm -o build/gdt/gdt64.asm.o
+
+build/idt64.o: src/idt/idt64.c
+	$(CC) $(KERNEL_CFLAGS) -I./src -c src/idt/idt64.c -o build/idt64.o
+
+build/idt64.asm.o: src/idt/idt64.asm
+	nasm -f elf64 -g src/idt/idt64.asm -o build/idt64.asm.o
+
+build/task/tss64.asm.o: src/task/tss64.asm
+	nasm -f elf64 -g src/task/tss64.asm -o build/task/tss64.asm.o
+
+build/task/process.o: src/task/process.c
+	$(CC) $(KERNEL_CFLAGS) -I./src -c src/task/process.c -o build/task/process.o
+
+bin/kernel64.bin: build/kernel64.asm.o build/kernel64.o build/memory/paging/paging64.o build/gdt/gdt64.asm.o build/gdt/gdt64.o build/idt64.o build/idt64.asm.o build/task/tss64.asm.o build/task/process.o
+	$(LD) $(LDFLAGS) build/kernel64.asm.o build/kernel64.o build/memory/paging/paging64.o build/gdt/gdt64.asm.o build/gdt/gdt64.o build/idt64.o build/idt64.asm.o build/task/tss64.asm.o build/task/process.o -o bin/kernel64.bin
 endif
 
 build/boot64/boot.o: src/boot64/boot.asm

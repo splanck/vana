@@ -82,4 +82,8 @@ void process_get_arguments(struct process* process, int* argc, char*** argv);
 int process_inject_arguments(struct process* process, struct command_argument* root_argument);
 int process_terminate(struct process* process);
 
+#ifdef __x86_64__
+void tss64_init(uint64_t rsp0);
+#endif
+
 #endif
