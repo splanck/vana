@@ -226,6 +226,12 @@ build/idt64.o: src/idt/idt64.c
 build/idt64.asm.o: src/idt/idt64.asm
 	nasm -f elf64 -g src/idt/idt64.asm -o build/idt64.asm.o
 
+build/page_fault.asm.o: src/idt/page_fault.asm
+	nasm -f elf64 -g src/idt/page_fault.asm -o build/page_fault.asm.o
+
+build/page_fault.o: src/idt/page_fault.c
+	$(CC) $(KERNEL_CFLAGS) -I./src -c src/idt/page_fault.c -o build/page_fault.o
+
 build/task/tss64.asm.o: src/task/tss64.asm
 	nasm -f elf64 -g src/task/tss64.asm -o build/task/tss64.asm.o
 
@@ -238,8 +244,8 @@ build/syscall/syscall.o: src/syscall/syscall.c
 build/syscall/syscall.asm.o: src/syscall/syscall.asm
 	nasm -f elf64 -g src/syscall/syscall.asm -o build/syscall/syscall.asm.o
 
-bin/kernel64.bin: build/kernel64.asm.o build/kernel64.o build/memory/paging/paging64.o build/gdt/gdt64.asm.o build/gdt/gdt64.o build/idt64.o build/idt64.asm.o build/task/tss64.asm.o build/task/process.o build/syscall/syscall.o build/syscall/syscall.asm.o
-	$(LD) $(LDFLAGS) build/kernel64.asm.o build/kernel64.o build/memory/paging/paging64.o build/gdt/gdt64.asm.o build/gdt/gdt64.o build/idt64.o build/idt64.asm.o build/task/tss64.asm.o build/task/process.o build/syscall/syscall.o build/syscall/syscall.asm.o -o bin/kernel64.bin
+bin/kernel64.bin: build/kernel64.asm.o build/kernel64.o build/memory/paging/paging64.o build/gdt/gdt64.asm.o build/gdt/gdt64.o build/idt64.o build/idt64.asm.o build/page_fault.o build/page_fault.asm.o build/task/tss64.asm.o build/task/process.o build/syscall/syscall.o build/syscall/syscall.asm.o
+	$(LD) $(LDFLAGS) build/kernel64.asm.o build/kernel64.o build/memory/paging/paging64.o build/gdt/gdt64.asm.o build/gdt/gdt64.o build/idt64.o build/idt64.asm.o build/page_fault.o build/page_fault.asm.o build/task/tss64.asm.o build/task/process.o build/syscall/syscall.o build/syscall/syscall.asm.o -o bin/kernel64.bin
 endif
 
 build/boot64/boot.o: src/boot64/boot.asm
