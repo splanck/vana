@@ -21,6 +21,10 @@ typedef uint64_t pte_t;
 
 #define PAGE_SIZE 0x1000
 
+/* Higher half direct map base and size */
+#define HHDM_BASE 0xffff800000000000ULL
+#define DIRECT_MAP_PAGES (1024*1024) /* map first 1 GiB */
+
 void paging64_init(uint64_t hhdm_base);
 
 int map_page(uint64_t virt, uint64_t phys, uint64_t flags);
