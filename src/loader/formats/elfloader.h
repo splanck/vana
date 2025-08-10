@@ -4,8 +4,13 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "elf.h"
 #include "config.h"
+
+#ifdef __x86_64__
+#include "../elf64.h"
+#else
+#include "elf.h"
+#endif
 
 struct elf_file
 {
@@ -57,16 +62,36 @@ void* elf_phys_end(struct elf_file* file);
 /* Get a pointer to the ELF header within the file. */
 struct elf_header* elf_header(struct elf_file* file);
 /* Return the first section header entry. */
+#ifdef __x86_64__
+struct elf64_shdr* elf_sheader(struct elf_header* header);
+#else
 struct elf32_shdr* elf_sheader(struct elf_header* header);
+#endif
 /* Pointer to the raw ELF data in memory. */
 void* elf_memory(struct elf_file* file);
 /* Return the first program header entry. */
+#ifdef __x86_64__
+struct elf64_phdr* elf_pheader(struct elf_header* header);
+#else
 struct elf32_phdr* elf_pheader(struct elf_header* header);
+#endif
 /* Retrieve the program header at the given index. */
+#ifdef __x86_64__
+struct elf64_phdr* elf_program_header(struct elf_header* header, int index);
+#else
 struct elf32_phdr* elf_program_header(struct elf_header* header, int index);
+#endif
 /* Retrieve the section header at the given index. */
+#ifdef __x86_64__
+struct elf64_shdr* elf_section(struct elf_header* header, int index);
+#else
 struct elf32_shdr* elf_section(struct elf_header* header, int index);
+#endif
 /* Convert a program header into a physical address. */
+#ifdef __x86_64__
+void* elf_phdr_phys_address(struct elf_file* file, struct elf64_phdr* phdr);
+#else
 void* elf_phdr_phys_address(struct elf_file* file, struct elf32_phdr* phdr);
+#endif
 
 #endif

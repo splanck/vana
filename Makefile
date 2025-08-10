@@ -53,7 +53,7 @@ FILES = ./build/kernel.asm.o \
         ./build/fs/pparser.o \
         ./build/fs/fat/fat16.o
 INCLUDES = -I./src -I./src/gdt -I./src/task -I./src/idt -I./src/fs -I./src/fs/fat -I./src/loader/formats -I./src/isr80h
-BUILD_DIRS = ./bin ./build/memory/heap ./build/memory/paging ./build/keyboard ./build/disk ./build/fs ./build/fs/fat ./build/task ./build/loader/formats ./build/isr80h ./build/boot64 ./build/syscall
+BUILD_DIRS = ./bin ./build/memory/heap ./build/memory/paging ./build/keyboard ./build/disk ./build/fs ./build/fs/fat ./build/task ./build/loader ./build/loader/formats ./build/isr80h ./build/boot64 ./build/syscall
 FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign-loops -fstrength-reduce -fomit-frame-pointer -finline-functions -Wno-unused-function -fno-builtin -Werror -Wno-unused-label -Wno-cpp -Wno-unused-parameter -nostdlib -nostartfiles -nodefaultlibs -Wall -O0 -Iinc -fno-pie -no-pie
 
 # Directory where the FAT image will be mounted
@@ -244,12 +244,15 @@ build/syscall/syscall.o: src/syscall/syscall.c
 build/syscall/syscall.asm.o: src/syscall/syscall.asm
 	nasm -f elf64 -g src/syscall/syscall.asm -o build/syscall/syscall.asm.o
 
-bin/kernel64.bin: build/kernel64.asm.o build/kernel64.o build/memory/paging/paging64.o build/gdt/gdt64.asm.o build/gdt/gdt64.o build/idt64.o build/idt64.asm.o build/page_fault.o build/page_fault.asm.o build/task/tss64.asm.o build/task/process.o build/syscall/syscall.o build/syscall/syscall.asm.o
-	$(LD) $(LDFLAGS) build/kernel64.asm.o build/kernel64.o build/memory/paging/paging64.o build/gdt/gdt64.asm.o build/gdt/gdt64.o build/idt64.o build/idt64.asm.o build/page_fault.o build/page_fault.asm.o build/task/tss64.asm.o build/task/process.o build/syscall/syscall.o build/syscall/syscall.asm.o -o bin/kernel64.bin
+bin/kernel64.bin: build/kernel64.asm.o build/kernel64.o build/memory/paging/paging64.o build/gdt/gdt64.asm.o build/gdt/gdt64.o build/idt64.o build/idt64.asm.o build/page_fault.o build/page_fault.asm.o build/task/tss64.asm.o build/task/process.o build/syscall/syscall.o build/syscall/syscall.asm.o build/loader/elf64.o
+	$(LD) $(LDFLAGS) build/kernel64.asm.o build/kernel64.o build/memory/paging/paging64.o build/gdt/gdt64.asm.o build/gdt/gdt64.o build/idt64.o build/idt64.asm.o build/page_fault.o build/page_fault.asm.o build/task/tss64.asm.o build/task/process.o build/syscall/syscall.o build/syscall/syscall.asm.o build/loader/elf64.o -o bin/kernel64.bin
 endif
 
 build/boot64/boot.o: src/boot64/boot.asm
 	nasm -f elf32 -g src/boot64/boot.asm -o build/boot64/boot.o
+
+build/loader/elf64.o: src/loader/elf64.c
+	$(CC) $(KERNEL_CFLAGS) -I./src -c src/loader/elf64.c -o build/loader/elf64.o
 
 bin/boot64.bin: build/boot64/boot.o
 	$(LD) -Ttext 0x7c00 build/boot64/boot.o -o build/boot64/boot.elf
