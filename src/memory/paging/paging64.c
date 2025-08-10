@@ -40,6 +40,14 @@ void paging64_init(uint64_t hhdm_base)
     hhdm_offset = hhdm_base;
     pml4 = alloc_table();
 
+    /* Create PML4 entry for the higher half direct map */
+    uint16_t hhdm_i = (hhdm_base >> 39) & 0x1FF;
+    pte_t* hhdm_pdpt = alloc_table();
+    pml4[hhdm_i] = virt_to_phys((uint64_t)hhdm_pdpt) | PTE_P | PTE_RW;
+
+    /* Map a direct window of physical memory */
+    map_range(hhdm_base, 0, DIRECT_MAP_PAGES, PTE_RW | PTE_NX);
+
     /* Load PML4 into CR3 */
     uint64_t cr3 = virt_to_phys((uint64_t)pml4);
     __asm__ volatile("mov %0, %%cr3" :: "r"(cr3));
@@ -52,14 +60,15 @@ void paging64_init(uint64_t hhdm_base)
 
 uint64_t phys_to_virt(uint64_t phys)
 {
-    if (!hhdm_offset)
-        return phys;
-    return phys + hhdm_offset;
+    if (hhdm_offset && phys < (uint64_t)DIRECT_MAP_PAGES * PAGE_SIZE)
+        return phys + hhdm_offset;
+    return phys;
 }
 
 uint64_t virt_to_phys(uint64_t virt)
 {
-    if (hhdm_offset && virt >= hhdm_offset)
+    uint64_t hhdm_end = hhdm_offset + (uint64_t)DIRECT_MAP_PAGES * PAGE_SIZE;
+    if (hhdm_offset && virt >= hhdm_offset && virt < hhdm_end)
         return virt - hhdm_offset;
 
     uint16_t pml4_i = (virt >> 39) & 0x1FF;
