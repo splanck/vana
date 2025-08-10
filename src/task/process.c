@@ -1,6 +1,7 @@
 #ifdef __x86_64__
 #include "task/tss.h"
 #include "gdt/gdt.h"
+#include "memory/heap/kheap.h"
 #include <stddef.h>
 
 extern struct tss64 tss64;
@@ -11,14 +12,21 @@ void tss64_init(uint64_t rsp0)
     uint64_t* tss = (uint64_t*)&tss64;
     for (size_t i = 0; i < sizeof(struct tss64)/sizeof(uint64_t); i++)
         tss[i] = 0;
+
     tss64.rsp0 = rsp0;
-    tss64.ist1 = rsp0;
-    tss64.ist2 = rsp0;
-    tss64.ist3 = rsp0;
-    tss64.ist4 = rsp0;
-    tss64.ist5 = rsp0;
-    tss64.ist6 = rsp0;
-    tss64.ist7 = rsp0;
+
+    const size_t ist_stack_size = 4096;
+    void* ist1 = kzalloc(ist_stack_size);
+    void* ist2 = kzalloc(ist_stack_size);
+    void* ist3 = kzalloc(ist_stack_size);
+
+    if (ist1)
+        tss64.ist1 = (uint64_t)ist1 + ist_stack_size;
+    if (ist2)
+        tss64.ist2 = (uint64_t)ist2 + ist_stack_size;
+    if (ist3)
+        tss64.ist3 = (uint64_t)ist3 + ist_stack_size;
+
     tss64_load(GDT64_TSS_SELECTOR);
 }
 
