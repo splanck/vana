@@ -13,6 +13,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 static int uint_to_base(unsigned long value, unsigned base, int upper,
                         char *buf, size_t size)
@@ -108,6 +109,9 @@ static int vsnprintf_impl(char *str, size_t size, const char *fmt, va_list ap)
         } else if (*p == 'j') {
             length = 3;
             ++p;
+        } else if (*p == 'z') {
+            length = 4;
+            ++p;
         }
 
         char spec = *p;
@@ -147,6 +151,13 @@ static int vsnprintf_impl(char *str, size_t size, const char *fmt, va_list ap)
                 if (sign)
                     uv = 0ull - uv;
                 len = ull_to_base(uv, 10, 0, buf, sizeof(buf));
+            } else if (length == 4) {
+                ssize_t v = va_arg(ap, ssize_t);
+                unsigned long long uv = (unsigned long long)v;
+                sign = v < 0;
+                if (sign)
+                    uv = 0ull - uv;
+                len = ull_to_base(uv, 10, 0, buf, sizeof(buf));
             } else if (length == 1) {
                 long v = va_arg(ap, long);
                 unsigned long uv = (unsigned long)v;
@@ -171,6 +182,9 @@ static int vsnprintf_impl(char *str, size_t size, const char *fmt, va_list ap)
             } else if (length == 2) {
                 unsigned long long v = va_arg(ap, unsigned long long);
                 len = ull_to_base(v, 10, 0, buf, sizeof(buf));
+            } else if (length == 4) {
+                size_t v = va_arg(ap, size_t);
+                len = ull_to_base((unsigned long long)v, 10, 0, buf, sizeof(buf));
             } else if (length == 1) {
                 unsigned long v = va_arg(ap, unsigned long);
                 len = uint_to_base(v, 10, 0, buf, sizeof(buf));
@@ -188,6 +202,9 @@ static int vsnprintf_impl(char *str, size_t size, const char *fmt, va_list ap)
             } else if (length == 2) {
                 unsigned long long v = va_arg(ap, unsigned long long);
                 len = ull_to_base(v, 16, spec == 'X', buf, sizeof(buf));
+            } else if (length == 4) {
+                size_t v = va_arg(ap, size_t);
+                len = ull_to_base((unsigned long long)v, 16, spec == 'X', buf, sizeof(buf));
             } else if (length == 1) {
                 unsigned long v = va_arg(ap, unsigned long);
                 len = uint_to_base(v, 16, spec == 'X', buf, sizeof(buf));
@@ -204,6 +221,9 @@ static int vsnprintf_impl(char *str, size_t size, const char *fmt, va_list ap)
             } else if (length == 2) {
                 unsigned long long v = va_arg(ap, unsigned long long);
                 len = ull_to_base(v, 8, 0, buf, sizeof(buf));
+            } else if (length == 4) {
+                size_t v = va_arg(ap, size_t);
+                len = ull_to_base((unsigned long long)v, 8, 0, buf, sizeof(buf));
             } else if (length == 1) {
                 unsigned long v = va_arg(ap, unsigned long);
                 len = uint_to_base(v, 8, 0, buf, sizeof(buf));
@@ -217,7 +237,7 @@ static int vsnprintf_impl(char *str, size_t size, const char *fmt, va_list ap)
             uintptr_t v = (uintptr_t)va_arg(ap, void *);
             prefix = "0x";
             prefix_len = 2;
-            len = uint_to_base(v, 16, 0, buf, sizeof(buf));
+            len = ull_to_base((unsigned long long)v, 16, 0, buf, sizeof(buf));
             break;
         }
         case 'c': {
